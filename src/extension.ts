@@ -3,6 +3,7 @@ import { exec } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import fetch from 'node-fetch';
+import * as toml from 'toml';
 
 function runCommand(command: string, cwd?: string): Promise<string> {
 	return new Promise((resolve, reject) => {
@@ -88,10 +89,8 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
 
 					try {
 						const output = await runCommand(`sui client publish --json`, rootPath);
-						const parsed = JSON.parse(output);
-						const outPath = path.join(rootPath, 'publish_output.json');
-						fs.writeFileSync(outPath, JSON.stringify(parsed, null, 2));
-						vscode.window.showInformationMessage(`✅ Published and saved to publish_output.json`);
+						// We no longer save publish_output.json, so no write here
+						vscode.window.showInformationMessage(`✅ Published successfully`);
 						this.renderHtml(this.view!);
 					} catch (err) {
 						vscode.window.showErrorMessage(`❌ Failed to publish: ${err}`);
@@ -151,36 +150,6 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
 						this.renderHtml(this.view!);
 					} catch (err) {
 						vscode.window.showErrorMessage(`❌ Failed to switch wallet: ${err}`);
-					}
-					break;
-				}
-
-				case 'create-wallet': {
-					try {
-						// Ask user to select key scheme
-						const scheme = await vscode.window.showQuickPick(
-							['ed25519', 'secp256k1', 'secp256r1'],
-							{ placeHolder: 'Select key scheme for new wallet' }
-						);
-						if (!scheme) {
-							vscode.window.showWarningMessage('Wallet creation cancelled: No scheme selected.');
-							return;
-						}
-
-						// Create new wallet with selected scheme
-						const output = await runCommand(`sui client new-address ${scheme} --json`);
-						const newWallet = JSON.parse(output);
-
-						vscode.window.showInformationMessage(`🆕 New Wallet Created: ${newWallet.address}`);
-						vscode.window.showInformationMessage(`🔑 Recovery Phrase: ${newWallet.recoveryPhrase}`);
-
-						// Switch to new wallet
-						await runCommand(`sui client switch --address ${newWallet.address}`);
-						vscode.window.showInformationMessage(`💻 Switched to new wallet: ${newWallet.address}`);
-
-						this.renderHtml(this.view!);
-					} catch (err) {
-						vscode.window.showErrorMessage(`❌ Failed to create wallet: ${err}`);
 					}
 					break;
 				}
@@ -246,10 +215,16 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
 		}
 
 		try {
-			const json = JSON.parse(
-				fs.readFileSync(path.join(rootPath, 'publish_output.json'), 'utf-8')
-			);
-			pkg = json.objectChanges.find((o: any) => o.type === 'published')?.packageId;
+			const lockFile = fs.readFileSync(path.join(rootPath, 'Move.lock'), 'utf-8');
+			const lockData = toml.parse(lockFile);
+			
+			const envSection = lockData.env?.[this.activeEnv] || lockData.env?.default || {};
+
+			pkg = envSection['latest-published-id'] || envSection['original-published-id'] || '';
+
+			if (!pkg) {
+				throw new Error('Package ID not found in move.lock');
+			}
 
 			const response = await fetch('https://fullnode.testnet.sui.io:443', {
 				method: 'POST',
@@ -299,10 +274,10 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
       <head>
         <meta charset="UTF-8" />
         <style>
-          body { font-family: sans-serif; padding: 1em; }
+          body { font-family: sans-serif; padding: 1em; background-color: #1e1e1e; color: white; }
           input, button, select { margin: 0.3em 0; width: 100%; padding: 0.5em; }
           button { background-color: #007acc; color: white; border: none; cursor: pointer; }
-          #walletAddress { color: white; cursor: pointer; }
+          #walletAddress { cursor: pointer; user-select: text; }
         </style>
       </head>
       <body>
@@ -321,8 +296,6 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
         </select>
         <p>Address: <span id="walletAddress" title="Click to copy">${shortWallet}</span></p>
         <p><strong>Balance:</strong> ${this.suiBalance} SUI</p>
-
-        <button onclick="sendCreateWallet()">➕ Create New Wallet</button>
 
         ${!isMoveProject ? `
           <h4>Create Package</h4>
@@ -363,10 +336,6 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             vscode.postMessage({ command: 'call', pkg, module, func, args });
           }
 
-          function sendCreateWallet() {
-            vscode.postMessage({ command: 'create-wallet' });
-          }
-
           document.getElementById('functionSelect').addEventListener('change', () => {
             const selected = document.getElementById('functionSelect').selectedOptions[0];
             const mod = selected.getAttribute('data-mod');
@@ -392,8 +361,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             vscode.postMessage({ command: 'switch-wallet', address });
           });
 
-          document.getElementById('walletAddress')?.addEventListener('click', () => {
-            const vscode = acquireVsCodeApi();
+          document.getElementById('walletAddress').addEventListener('click', () => {
             const walletAddress = '${this.activeWallet}';
             navigator.clipboard.writeText(walletAddress).then(() => {
               vscode.postMessage({ command: 'showCopyNotification' });
