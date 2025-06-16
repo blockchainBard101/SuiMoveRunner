@@ -1,71 +1,82 @@
-# suimoverunner README
+# Sui Move Runner
 
-This is the README for your extension "suimoverunner". After writing up a brief description, we recommend including the following sections.
-
-## Features
-
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
-
-For example if there is an image subfolder under your extension project workspace:
-
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
-
-## Requirements
-
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
-
-## Extension Settings
-
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
+A Visual Studio Code extension to simplify development, build, publish, upgrade, test, and function calls for **Sui Move** smart contracts — all from an intuitive sidebar UI.
 
 ---
 
-## Following extension guidelines
+## Features
 
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
+* Create new Sui Move packages with a single click.
+* Build your Move package inside VS Code with live output.
+* Publish packages and automatically track upgrade capabilities.
+* Upgrade published packages using saved upgrade capabilities.
+* Run tests for your Move package and view test results.
+* Call Move functions with flexible argument and type argument inputs.
+* Manage and switch between multiple Sui environments (testnet, devnet, mainnet, or custom).
+* Manage and switch wallets connected to the Sui client.
+* Display your current wallet address and SUI balance.
+* Clean, dark-themed UI with responsive inputs and buttons.
 
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
+---
 
-## Working with Markdown
+## Requirements
 
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
+* **Sui client** and **Move toolchain** installed and available in your system PATH.
+* A VS Code workspace opened with a Sui Move package (Move.toml) to enable build/publish/upgrade/test functionality.
+* Network access to Sui fullnode RPC endpoints for fetching package module info.
 
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
+---
 
-## For more information
+## Installation
 
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
+Install directly from the VSIX or publish your own version in the VS Code Marketplace.
 
-**Enjoy!**
+---
+
+## Extension Settings
+
+Currently, this extension does not expose any additional VS Code settings.
+
+---
+
+## Known Issues
+
+* RPC endpoints for fullnode are hardcoded for `testnet`, `devnet`, and `mainnet`. Custom environments require manual RPC input on first creation.
+* Some long-running commands may freeze the UI briefly until completion.
+* The upgrade capability tracking depends on correct output parsing and may fail if the Sui client output format changes.
+
+---
+
+## Release Notes
+
+### 1.0.0
+
+* Initial release of Sui Move Runner.
+* Sidebar UI with commands for package creation, building, publishing, upgrading, testing, and calling Move functions.
+* Environment and wallet management.
+* Displays wallet balance and active environment.
+
+---
+
+## Contributing
+
+Contributions and feedback are welcome! Feel free to open issues or submit pull requests.
+
+---
+
+## Additional Resources
+
+* [Sui Blockchain Docs](https://docs.sui.io/)
+* [Move Language](https://move-language.github.io/move/)
+* [VS Code Extension API](https://code.visualstudio.com/api)
+
+---
+
+## License
+
+MIT License © BlockchainBard
+
+---
+
+**Enjoy building on Sui with ease! 🚀**
+

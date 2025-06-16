@@ -558,61 +558,170 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
       <head>
         <meta charset="UTF-8" />
         <style>
-          body { font-family: sans-serif; padding: 1em; background-color: #1e1e1e; color: white; }
-          input, button, select { margin: 0.3em 0; width: 100%; padding: 0.5em; }
-          button { background-color: #007acc; color: white; border: none; cursor: pointer; }
-          #walletAddress { cursor: pointer; user-select: text; color: white; }
-          #typeArgsContainer > input, #argsContainer > input { margin-bottom: 0.5em; }
+          /* Reset and base */
+          * {
+            box-sizing: border-box;
+          }
+          body {
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            padding: 16px;
+            margin: 0;
+            background-color: #000000;  /* black background */
+            color: #e0e0e0;
+          }
+          h3 {
+            margin-bottom: 1rem;
+            font-weight: 700;
+            color: #61dafb;
+            text-align: center;
+          }
+          p, h4 {
+            margin: 0.8rem 0 0.4rem 0;
+          }
+          select, input[type="text"], input[type="search"], input {
+            width: 100%;
+            padding: 8px 10px;
+            margin-bottom: 12px;
+            border-radius: 6px;
+            border: 1.5px solid #44475a;
+            background-color: #282a36;
+            color: #f8f8f2;
+            font-size: 0.9rem;
+            transition: border-color 0.2s ease;
+          }
+          select:focus, input:focus {
+            outline: none;
+            border-color: #50fa7b;
+            box-shadow: 0 0 6px #50fa7b88;
+          }
+          button {
+            width: 100%;
+            padding: 6px 0;         /* smaller height */
+            background-color: #007acc;  /* VSCode blue */
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-weight: 600;
+            font-size: 0.85rem;    /* smaller font */
+            cursor: pointer;
+            margin-bottom: 1rem;
+            transition: background-color 0.3s ease;
+          }
+          button:hover {
+            background-color: #005a9e;
+          }
+          #walletAddress {
+            user-select: text;
+            cursor: pointer;
+            color: #f1fa8c;
+            font-weight: 600;
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 5px;
+            background-color: #44475a;
+            transition: background-color 0.3s ease;
+          }
+          #walletAddress:hover {
+            background-color: #50fa7b;
+            color: #282a36;
+          }
+          #typeArgsContainer > input,
+          #argsContainer > input {
+            margin-bottom: 10px;
+            border-radius: 6px;
+            border: 1.5px solid #44475a;
+            background-color: #282a36;
+            padding: 8px 10px;
+            color: #f8f8f2;
+            font-size: 0.9rem;
+            width: 100%;
+          }
+          b {
+            display: block;
+            margin-bottom: 6px;
+            color: #8be9fd;
+            font-size: 1rem;
+          }
+          .section {
+            background-color: #282a36;
+            padding: 12px 16px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+          }
+          #argsContainer, #typeArgsContainer {
+            max-height: 120px;
+            overflow-y: auto;
+          }
         </style>
       </head>
       <body>
         <h3>Sui Move Runner</h3>
 
-        <p><strong>Active Env:</strong> ${this.activeEnv}</p>
-        <select id="envSwitcher">${envOptions}</select>
+        <div class="section" style="text-align:center; font-weight:bold; font-size:1.1rem; color:#61dafb;">
+          ${this.activeEnv || 'None'}
+        </div>
 
-        <p><strong>Wallet:</strong></p>
-        <select id="walletSwitcher">
-          ${this.wallets.map(w => `
-            <option value="${w.address}" ${w.address === this.activeWallet ? 'selected' : ''}>
-              ${w.name} - ${w.address.slice(0, 6)}...${w.address.slice(-4)}
-            </option>
-          `).join('')}
-        </select>
-        <p>Address: <span id="walletAddress" title="Click to copy">${shortWallet}</span></p>
-        <p><strong>Balance:</strong> ${this.suiBalance} SUI</p>
+        <div class="section">
+          <select id="envSwitcher">${envOptions}</select>
+        </div>
+
+        <div class="section">
+          <p><strong>Wallet</strong></p>
+          <select id="walletSwitcher">
+            ${this.wallets.map(w => `
+              <option value="${w.address}" ${w.address === this.activeWallet ? 'selected' : ''}>
+                ${w.name} - ${w.address.slice(0, 6)}...${w.address.slice(-4)}
+              </option>
+            `).join('')}
+          </select>
+          <p>Address: <span id="walletAddress" title="Click to copy">${shortWallet}</span></p>
+          <p><strong>Balance:</strong> ${this.suiBalance} SUI</p>
+        </div>
 
         ${!isMoveProject ? `
-          <h4>Create Package</h4>
-          <input id="packageName" placeholder="Package name" />
-          <button onclick="sendCreate()">📦 Create</button>
+          <div class="section">
+            <h4>Create Package</h4>
+            <input id="packageName" placeholder="Package name" />
+            <button onclick="sendCreate()">📦 Create</button>
+          </div>
         ` : ''}
 
         ${isMoveProject ? `
-          <h4>Build Package</h4>
-          <button onclick="sendBuild()">🛠️ Build</button>
+          <div class="section">
+            <h4>Build Package</h4>
+            <button onclick="sendBuild()">🛠️ Build</button>
+          </div>
 
-          <h4>Publish Package</h4>
-          <button onclick="sendPublish()">🚀 ${pkg ? 'Re-publish' : 'Publish'}</button>
+          <div class="section">
+            <h4>Publish Package</h4>
+            <button onclick="sendPublish()">🚀 ${pkg ? 'Re-publish' : 'Publish'}</button>
+          </div>
 
           ${upgradeCapInfo ? `
-          <h4>Upgrade Package</h4>
-          <button onclick="sendUpgrade()">⬆️ Upgrade</button>
+          <div class="section">
+            <h4>Upgrade Package</h4>
+            <button onclick="sendUpgrade()">⬆️ Upgrade</button>
+          </div>
           ` : ''}
         ` : ''}
 
-        <h4>Test Package</h4>
-        <input id="testFuncName" placeholder="Test function name (optional)" />
-        <button onclick="sendTest()">🧪 Test</button>
+        <div class="section">
+          <h4>Test Package</h4>
+          <input id="testFuncName" placeholder="Test function name (optional)" />
+          <button onclick="sendTest()">🧪 Test</button>
+        </div>
 
-        <h4>Call Function</h4>
-        <input id="pkg" value="${pkg}" readonly />
-        <select id="functionSelect">${modulesHtml}</select>
+        <div class="section">
+          <h4>Call Function</h4>
+          <input id="pkg" value="${pkg}" readonly />
+          <select id="functionSelect">${modulesHtml}</select>
 
-        <div id="typeArgsContainer"></div>  <!-- For type args inputs -->
+          <div id="typeArgsContainer"></div>
+          <div id="argsContainer"></div>
 
-        <div id="argsContainer"></div>
-        <button onclick="sendCall()">🧠 Call</button>
+          <button onclick="sendCall()">🧠 Call</button>
+        </div>
 
         <script>
           const vscode = acquireVsCodeApi();
@@ -668,7 +777,6 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             argsContainer.innerHTML = '';
             typeArgsContainer.innerHTML = '';
 
-            // Render type argument inputs if needed
             if (typeParams.length > 0) {
               const typeArgsHeader = document.createElement('b');
               typeArgsHeader.textContent = 'Type Arguments';
@@ -683,7 +791,6 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
               });
             }
 
-            // Render normal argument inputs with label
             if (argTypes.length > 0) {
               const argsHeader = document.createElement('b');
               argsHeader.textContent = 'Arguments';
