@@ -33,6 +33,8 @@ function waitForFolder(folderPath: string, timeout: number): Promise<boolean> {
   });
 }
 
+
+
 export function activate(context: vscode.ExtensionContext) {
   const provider = new SuiRunnerSidebar();
   context.subscriptions.push(
@@ -61,6 +63,19 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
       this.suiBalance = '0';
     }
   }
+
+  async refreshEnvs() {
+  try {
+    const envOutput = await runCommand(`sui client envs --json`);
+    const [envsList, currentEnv] = JSON.parse(envOutput);
+    this.activeEnv = currentEnv;
+    this.availableEnvs = envsList.map((e: any) => ({ alias: e.alias, rpc: e.rpc }));
+  } catch {
+    this.activeEnv = 'None';
+    this.availableEnvs = [];
+  }
+}
+
 
   async renderUpgradeCapInfo(rootPath: string, pkg: string) {
     const upgradeTomlPath = path.join(rootPath, 'upgrade.toml');
@@ -430,6 +445,11 @@ updated_at = "${new Date().toISOString()}"
 
           try {
             await runCommand(`sui client switch --env ${alias}`);
+
+            // Refresh environment and wallet info before re-rendering
+            await this.refreshEnvs();
+            await this.refreshWallets();
+
             vscode.window.showInformationMessage(`🔄 Switched to env: ${alias}`);
             this.renderHtml(this.view!);
           } catch (err) {
@@ -443,6 +463,10 @@ updated_at = "${new Date().toISOString()}"
           if (!address) return;
           try {
             await runCommand(`sui client switch --address ${address}`);
+
+            // Refresh wallet info before re-rendering
+            await this.refreshWallets();
+
             vscode.window.showInformationMessage(`💻 Switched wallet to ${address}`);
             this.renderHtml(this.view!);
           } catch (err) {
