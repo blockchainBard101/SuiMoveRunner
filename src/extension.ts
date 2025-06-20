@@ -8,8 +8,11 @@ import * as toml from 'toml';
 function runCommand(command: string, cwd?: string): Promise<string> {
   return new Promise((resolve, reject) => {
     exec(command, { cwd }, (error, stdout, stderr) => {
-      if (error) {reject(stderr || error.message);}
-      else {resolve(stdout);}
+      if (error) {
+        reject(stderr || error.message);
+      } else {
+        resolve(stdout);
+      }
     });
   });
 }
@@ -45,13 +48,26 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
   private wallets: { name: string; address: string }[] = [];
   private suiBalance: string = '0';
 
+  async refreshWallets() {
+    try {
+      const addrOutput = await runCommand(`sui client addresses --json`);
+      const parsed = JSON.parse(addrOutput);
+      this.activeWallet = parsed.activeAddress || '';
+      this.wallets = parsed.addresses.map((arr: any[]) => ({ name: arr[0], address: arr[1] }));
+      await this.fetchWalletBalance();
+    } catch {
+      this.activeWallet = 'Unavailable';
+      this.wallets = [];
+      this.suiBalance = '0';
+    }
+  }
+
   async renderUpgradeCapInfo(rootPath: string, pkg: string) {
     const upgradeTomlPath = path.join(rootPath, 'upgrade.toml');
-    if (!fs.existsSync(upgradeTomlPath)) {return null;}
+    if (!fs.existsSync(upgradeTomlPath)) return null;
     try {
       const content = fs.readFileSync(upgradeTomlPath, 'utf-8');
       const info = toml.parse(content);
-      // Check if the package ID matches
       if (info.upgrade?.packageId === pkg || info.upgrade?.package_id === pkg) {
         return {
           upgradeCap: info.upgrade?.upgradeCap || info.upgrade?.upgrade_cap,
@@ -73,7 +89,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
       switch (message.command) {
         case 'create': {
           const name = message.packageName;
-          if (!name) {return;}
+          if (!name) return;
 
           let basePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
           if (!basePath) {
@@ -83,7 +99,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
               canSelectMany: false,
               openLabel: 'Select folder to create Move package in'
             });
-            if (!folderUris || folderUris.length === 0) {return;}
+            if (!folderUris || folderUris.length === 0) return;
             basePath = folderUris[0].fsPath;
           }
 
@@ -174,7 +190,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
                         break;
                       }
                     }
-                    if (upgradeCapId) {break;}
+                    if (upgradeCapId) break;
                   }
                 }
 
@@ -191,7 +207,6 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
                     pkg = '';
                   }
 
-                  // Create TOML content for upgrade information
                   const upgradeTomlContent = `[upgrade]
 upgrade_cap = "${upgradeCapId}"
 package_id = "${pkg}"
@@ -210,8 +225,6 @@ created_at = "${new Date().toISOString()}"
                 vscode.window.showErrorMessage(`❌ Publish failed with exit code ${code}, see "Sui Move Publish" output.`);
               }
             });
-
-
           } catch (err) {
             vscode.window.showErrorMessage(`❌ Failed to run publish: ${err}`);
           }
@@ -277,7 +290,7 @@ created_at = "${new Date().toISOString()}"
                         break;
                       }
                     }
-                    if (newUpgradeCapId) {break;}
+                    if (newUpgradeCapId) break;
                   }
                 }
 
@@ -292,7 +305,6 @@ created_at = "${new Date().toISOString()}"
                     pkg = '';
                   }
 
-                  // Update TOML content with new upgrade capability
                   const upgradeTomlContent = `[upgrade]
 upgrade_cap = "${newUpgradeCapId}"
 package_id = "${pkg}"
@@ -402,12 +414,12 @@ updated_at = "${new Date().toISOString()}"
 
         case 'switch-env': {
           const alias = message.alias;
-          if (!alias) {return;}
+          if (!alias) return;
 
           const exists = this.availableEnvs.some(e => e.alias === alias);
           if (!exists) {
             const rpc = await vscode.window.showInputBox({ prompt: `RPC for new env '${alias}'` });
-            if (!rpc) {return;}
+            if (!rpc) return;
             try {
               await runCommand(`sui client new-env --alias ${alias} --rpc ${rpc}`);
             } catch (err) {
@@ -428,7 +440,7 @@ updated_at = "${new Date().toISOString()}"
 
         case 'switch-wallet': {
           const address = message.address;
-          if (!address) {return;}
+          if (!address) return;
           try {
             await runCommand(`sui client switch --address ${address}`);
             vscode.window.showInformationMessage(`💻 Switched wallet to ${address}`);
@@ -438,6 +450,31 @@ updated_at = "${new Date().toISOString()}"
           }
           break;
         }
+
+        case 'create-address': {
+          try {
+            const keyScheme = await vscode.window.showQuickPick(
+              ['ed25519', 'secp256k1', 'secp256r1'],
+              { placeHolder: 'Select key scheme for new address' }
+            );
+            if (!keyScheme) {
+              vscode.window.showWarningMessage('Address creation cancelled.');
+              break;
+            }
+            const output = await runCommand(`sui client new-address ${keyScheme} --json`);
+            const parsed = JSON.parse(output);
+
+            await this.refreshWallets();
+            vscode.window.showInformationMessage(
+              `✅ New address created:\nAlias: ${parsed.alias}\nAddress: ${parsed.address}`
+            );
+            this.renderHtml(this.view!);
+          } catch (err) {
+            vscode.window.showErrorMessage(`❌ Failed to create new address: ${err}`);
+          }
+          break;
+        }
+
 
         case 'showCopyNotification': {
           vscode.window.showInformationMessage('📋 Wallet address copied to clipboard!');
@@ -462,7 +499,7 @@ updated_at = "${new Date().toISOString()}"
   }
 
   formatStruct(s: any): string {
-    if (!s.address || !s.module || !s.name) {return 'Unknown';}
+    if (!s.address || !s.module || !s.name) return 'Unknown';
     const shortAddr = s.address.slice(0, 5) + '...' + s.address.slice(-3);
     return `${shortAddr}::${s.module}::${s.name}`;
   }
@@ -486,18 +523,7 @@ updated_at = "${new Date().toISOString()}"
       this.availableEnvs = [];
     }
 
-    try {
-      const addrOutput = await runCommand(`sui client addresses --json`);
-      const parsed = JSON.parse(addrOutput);
-      this.activeWallet = parsed.activeAddress || '';
-      this.wallets = parsed.addresses.map((arr: any[]) => ({ name: arr[0], address: arr[1] }));
-
-      await this.fetchWalletBalance();
-    } catch {
-      this.activeWallet = 'Unavailable';
-      this.wallets = [];
-      this.suiBalance = '0';
-    }
+    await this.refreshWallets();
 
     try {
       const lockFile = fs.readFileSync(path.join(rootPath, 'Move.lock'), 'utf-8');
@@ -554,10 +580,10 @@ updated_at = "${new Date().toISOString()}"
               ([fname, fdata]: [string, any]) => {
                 const argTypes = fdata.parameters.map((t: any) => {
                   const getName = (obj: any): string | null => {
-                    if (typeof obj === 'string') {return obj;}
-                    if (obj.Struct && obj.Struct.name !== 'TxContext') {return this.formatStruct(obj.Struct);}
-                    if (obj.Reference?.Struct && obj.Reference.Struct.name !== 'TxContext') {return this.formatStruct(obj.Reference.Struct);}
-                    if (obj.MutableReference?.Struct && obj.MutableReference.Struct.name !== 'TxContext') {return this.formatStruct(obj.MutableReference.Struct);}
+                    if (typeof obj === 'string') return obj;
+                    if (obj.Struct && obj.Struct.name !== 'TxContext') return this.formatStruct(obj.Struct);
+                    if (obj.Reference?.Struct && obj.Reference.Struct.name !== 'TxContext') return this.formatStruct(obj.Reference.Struct);
+                    if (obj.MutableReference?.Struct && obj.MutableReference.Struct.name !== 'TxContext') return this.formatStruct(obj.MutableReference.Struct);
                     return null;
                   };
                   return getName(t);
@@ -706,6 +732,7 @@ updated_at = "${new Date().toISOString()}"
           </select>
           <p>Address: <span id="walletAddress" title="Click to copy">${shortWallet}</span></p>
           <p><strong>Balance:</strong> ${this.suiBalance} SUI</p>
+          <button id="createAddressBtn">➕ Create New Address</button>
         </div>
 
         ${!isMoveProject ? `
@@ -858,6 +885,11 @@ updated_at = "${new Date().toISOString()}"
             navigator.clipboard.writeText(walletAddress).then(() => {
               vscode.postMessage({ command: 'showCopyNotification' });
             });
+          });
+
+          // New Address Button Handler
+          document.getElementById('createAddressBtn').addEventListener('click', () => {
+            vscode.postMessage({ command: 'create-address' });
           });
         </script>
       </body>
