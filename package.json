@@ -1,8 +1,11 @@
 {
   "name": "suimoverunner",
-  "displayName": "SuiMoveRunner",
+  "displayName": "Sui Move Runner",
   "description": "Deploy & Interact with Move Smart Contracts on Sui from the Sidebar",
+  "publisher": "blockchainBard",
   "version": "0.0.1",
+  "repository": "https://github.com/blockchainBard101/SuiMoveRunner.git",
+  "icon": "media/icon.png",
   "engines": {
     "vscode": "^1.101.0"
   },
@@ -19,7 +22,7 @@
         {
           "id": "suiRunner",
           "title": "SuiRunner",
-          "icon": "media/icon.svg"
+          "icon": "media/logo.png"
         }
       ]
     },
@@ -72,6 +75,7 @@
   },
   "dependencies": {
     "node-fetch": "^2.7.0",
-    "toml": "^3.0.0"
+    "toml": "^3.0.0",
+    "tomlify-j0.4": "^3.0.0"
   }
 }

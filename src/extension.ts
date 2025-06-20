@@ -8,8 +8,8 @@ import * as toml from 'toml';
 function runCommand(command: string, cwd?: string): Promise<string> {
   return new Promise((resolve, reject) => {
     exec(command, { cwd }, (error, stdout, stderr) => {
-      if (error) reject(stderr || error.message);
-      else resolve(stdout);
+      if (error) {reject(stderr || error.message);}
+      else {resolve(stdout);}
     });
   });
 }
@@ -46,13 +46,17 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
   private suiBalance: string = '0';
 
   async renderUpgradeCapInfo(rootPath: string, pkg: string) {
-    const upgradeCapPath = path.join(rootPath, 'upgrade_cap.txt');
-    if (!fs.existsSync(upgradeCapPath)) return null;
+    const upgradeTomlPath = path.join(rootPath, 'upgrade.toml');
+    if (!fs.existsSync(upgradeTomlPath)) {return null;}
     try {
-      const content = fs.readFileSync(upgradeCapPath, 'utf-8');
-      const info = JSON.parse(content);
-      if (info.packageId === pkg) {
-        return info;
+      const content = fs.readFileSync(upgradeTomlPath, 'utf-8');
+      const info = toml.parse(content);
+      // Check if the package ID matches
+      if (info.upgrade?.packageId === pkg || info.upgrade?.package_id === pkg) {
+        return {
+          upgradeCap: info.upgrade?.upgradeCap || info.upgrade?.upgrade_cap,
+          packageId: info.upgrade?.packageId || info.upgrade?.package_id
+        };
       }
     } catch {
       // ignore parse errors
@@ -69,7 +73,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
       switch (message.command) {
         case 'create': {
           const name = message.packageName;
-          if (!name) return;
+          if (!name) {return;}
 
           let basePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
           if (!basePath) {
@@ -79,7 +83,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
               canSelectMany: false,
               openLabel: 'Select folder to create Move package in'
             });
-            if (!folderUris || folderUris.length === 0) return;
+            if (!folderUris || folderUris.length === 0) {return;}
             basePath = folderUris[0].fsPath;
           }
 
@@ -170,12 +174,12 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
                         break;
                       }
                     }
-                    if (upgradeCapId) break;
+                    if (upgradeCapId) {break;}
                   }
                 }
 
                 if (upgradeCapId) {
-                  const upgradeCapPath = path.join(rootPath, 'upgrade_cap.txt');
+                  const upgradeTomlPath = path.join(rootPath, 'upgrade.toml');
 
                   let pkg = '';
                   try {
@@ -187,8 +191,16 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
                     pkg = '';
                   }
 
-                  fs.writeFileSync(upgradeCapPath, JSON.stringify({ upgradeCap: upgradeCapId, packageId: pkg }));
-                  vscode.window.showInformationMessage(`📄 UpgradeCap saved: ${upgradeCapId}`);
+                  // Create TOML content for upgrade information
+                  const upgradeTomlContent = `[upgrade]
+upgrade_cap = "${upgradeCapId}"
+package_id = "${pkg}"
+environment = "${this.activeEnv}"
+created_at = "${new Date().toISOString()}"
+`;
+
+                  fs.writeFileSync(upgradeTomlPath, upgradeTomlContent);
+                  vscode.window.showInformationMessage(`📄 UpgradeCap saved to upgrade.toml: ${upgradeCapId}`);
                 } else {
                   vscode.window.showWarningMessage('⚠️ UpgradeCap not found in publish output.');
                 }
@@ -213,18 +225,23 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             return;
           }
           const rootPath = workspaceFolder.uri.fsPath;
-          const upgradeCapPath = path.join(rootPath, 'upgrade_cap.txt');
+          const upgradeTomlPath = path.join(rootPath, 'upgrade.toml');
 
-          if (!fs.existsSync(upgradeCapPath)) {
+          if (!fs.existsSync(upgradeTomlPath)) {
             vscode.window.showErrorMessage('⚠️ No upgrade capability found. Please publish first.');
             break;
           }
 
           let upgradeCapInfo;
           try {
-            upgradeCapInfo = JSON.parse(fs.readFileSync(upgradeCapPath, 'utf-8'));
+            const content = fs.readFileSync(upgradeTomlPath, 'utf-8');
+            const parsed = toml.parse(content);
+            upgradeCapInfo = {
+              upgradeCap: parsed.upgrade?.upgrade_cap || parsed.upgrade?.upgradeCap,
+              packageId: parsed.upgrade?.package_id || parsed.upgrade?.packageId
+            };
           } catch {
-            vscode.window.showErrorMessage('⚠️ Invalid upgrade_cap.txt content.');
+            vscode.window.showErrorMessage('⚠️ Invalid upgrade.toml content.');
             break;
           }
 
@@ -260,7 +277,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
                         break;
                       }
                     }
-                    if (newUpgradeCapId) break;
+                    if (newUpgradeCapId) {break;}
                   }
                 }
 
@@ -275,9 +292,17 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
                     pkg = '';
                   }
 
-                  fs.writeFileSync(upgradeCapPath, JSON.stringify({ upgradeCap: newUpgradeCapId, packageId: pkg }));
+                  // Update TOML content with new upgrade capability
+                  const upgradeTomlContent = `[upgrade]
+upgrade_cap = "${newUpgradeCapId}"
+package_id = "${pkg}"
+environment = "${this.activeEnv}"
+updated_at = "${new Date().toISOString()}"
+`;
 
-                  vscode.window.showInformationMessage(`✅ Upgrade succeeded. New UpgradeCap saved: ${newUpgradeCapId}`);
+                  fs.writeFileSync(upgradeTomlPath, upgradeTomlContent);
+
+                  vscode.window.showInformationMessage(`✅ Upgrade succeeded. New UpgradeCap saved to upgrade.toml: ${newUpgradeCapId}`);
                 } else {
                   vscode.window.showWarningMessage('⚠️ Could not find new UpgradeCap ObjectID in upgrade output.');
                 }
@@ -377,12 +402,12 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
 
         case 'switch-env': {
           const alias = message.alias;
-          if (!alias) return;
+          if (!alias) {return;}
 
           const exists = this.availableEnvs.some(e => e.alias === alias);
           if (!exists) {
             const rpc = await vscode.window.showInputBox({ prompt: `RPC for new env '${alias}'` });
-            if (!rpc) return;
+            if (!rpc) {return;}
             try {
               await runCommand(`sui client new-env --alias ${alias} --rpc ${rpc}`);
             } catch (err) {
@@ -403,7 +428,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
 
         case 'switch-wallet': {
           const address = message.address;
-          if (!address) return;
+          if (!address) {return;}
           try {
             await runCommand(`sui client switch --address ${address}`);
             vscode.window.showInformationMessage(`💻 Switched wallet to ${address}`);
@@ -437,7 +462,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
   }
 
   formatStruct(s: any): string {
-    if (!s.address || !s.module || !s.name) return 'Unknown';
+    if (!s.address || !s.module || !s.name) {return 'Unknown';}
     const shortAddr = s.address.slice(0, 5) + '...' + s.address.slice(-3);
     return `${shortAddr}::${s.module}::${s.name}`;
   }
@@ -487,11 +512,15 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
 
     let upgradeCapInfo: { upgradeCap: string; packageId: string } | null = null;
     try {
-      const upgradeCapPath = path.join(rootPath, 'upgrade_cap.txt');
-      if (fs.existsSync(upgradeCapPath)) {
-        const content = fs.readFileSync(upgradeCapPath, 'utf-8');
-        const parsed = JSON.parse(content);
-        if (parsed.packageId === pkg) upgradeCapInfo = parsed;
+      const upgradeTomlPath = path.join(rootPath, 'upgrade.toml');
+      if (fs.existsSync(upgradeTomlPath)) {
+        const content = fs.readFileSync(upgradeTomlPath, 'utf-8');
+        const parsed = toml.parse(content);
+        const upgradeCap = parsed.upgrade?.upgrade_cap || parsed.upgrade?.upgradeCap;
+        const packageId = parsed.upgrade?.package_id || parsed.upgrade?.packageId;
+        if (packageId === pkg && upgradeCap) {
+          upgradeCapInfo = { upgradeCap, packageId };
+        }
       }
     } catch {
       upgradeCapInfo = null;
@@ -525,10 +554,10 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
               ([fname, fdata]: [string, any]) => {
                 const argTypes = fdata.parameters.map((t: any) => {
                   const getName = (obj: any): string | null => {
-                    if (typeof obj === 'string') return obj;
-                    if (obj.Struct && obj.Struct.name !== 'TxContext') return this.formatStruct(obj.Struct);
-                    if (obj.Reference?.Struct && obj.Reference.Struct.name !== 'TxContext') return this.formatStruct(obj.Reference.Struct);
-                    if (obj.MutableReference?.Struct && obj.MutableReference.Struct.name !== 'TxContext') return this.formatStruct(obj.MutableReference.Struct);
+                    if (typeof obj === 'string') {return obj;}
+                    if (obj.Struct && obj.Struct.name !== 'TxContext') {return this.formatStruct(obj.Struct);}
+                    if (obj.Reference?.Struct && obj.Reference.Struct.name !== 'TxContext') {return this.formatStruct(obj.Reference.Struct);}
+                    if (obj.MutableReference?.Struct && obj.MutableReference.Struct.name !== 'TxContext') {return this.formatStruct(obj.MutableReference.Struct);}
                     return null;
                   };
                   return getName(t);
@@ -566,13 +595,13 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
             padding: 16px;
             margin: 0;
-            background-color: #000000;  /* black background */
-            color: #e0e0e0;
+            background-color: var(--vscode-editor-background);
+            color: var(--vscode-editor-foreground);
           }
           h3 {
             margin-bottom: 1rem;
             font-weight: 700;
-            color: #61dafb;
+            color: var(--vscode-editor-focusBorder);
             text-align: center;
           }
           p, h4 {
@@ -583,67 +612,67 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             padding: 8px 10px;
             margin-bottom: 12px;
             border-radius: 6px;
-            border: 1.5px solid #44475a;
-            background-color: #282a36;
-            color: #f8f8f2;
+            border: 1.5px solid var(--vscode-dropdown-border);
+            background-color: var(--vscode-dropdown-background);
+            color: var(--vscode-input-foreground);
             font-size: 0.9rem;
             transition: border-color 0.2s ease;
           }
           select:focus, input:focus {
             outline: none;
-            border-color: #50fa7b;
-            box-shadow: 0 0 6px #50fa7b88;
+            border-color: var(--vscode-inputValidation-infoBorder);
+            box-shadow: 0 0 6px var(--vscode-inputValidation-infoBorder);
           }
           button {
             width: 100%;
-            padding: 6px 0;         /* smaller height */
-            background-color: #007acc;  /* VSCode blue */
+            padding: 6px 0;
+            background-color: var(--vscode-button-background);
             border: none;
             border-radius: 6px;
-            color: white;
+            color: var(--vscode-button-foreground);
             font-weight: 600;
-            font-size: 0.85rem;    /* smaller font */
+            font-size: 0.85rem;
             cursor: pointer;
             margin-bottom: 1rem;
             transition: background-color 0.3s ease;
           }
           button:hover {
-            background-color: #005a9e;
+            background-color: var(--vscode-button-hoverBackground);
           }
           #walletAddress {
             user-select: text;
             cursor: pointer;
-            color: #f1fa8c;
+            color: var(--vscode-editorWarning-foreground);
             font-weight: 600;
             display: inline-block;
             padding: 4px 8px;
             border-radius: 5px;
-            background-color: #44475a;
+            background-color: var(--vscode-editorWarning-background);
             transition: background-color 0.3s ease;
           }
           #walletAddress:hover {
-            background-color: #50fa7b;
-            color: #282a36;
+            background-color: var(--vscode-inputValidation-infoBackground);
+            color: var(--vscode-input-foreground);
           }
           #typeArgsContainer > input,
           #argsContainer > input {
             margin-bottom: 10px;
             border-radius: 6px;
-            border: 1.5px solid #44475a;
-            background-color: #282a36;
+            border: 1.5px solid var(--vscode-dropdown-border);
+            background-color: var(--vscode-dropdown-background);
             padding: 8px 10px;
-            color: #f8f8f2;
+            color: var(--vscode-input-foreground);
             font-size: 0.9rem;
             width: 100%;
           }
           b {
             display: block;
             margin-bottom: 6px;
-            color: #8be9fd;
+            color: var(--vscode-editorInfo-foreground);
             font-size: 1rem;
           }
           .section {
-            background-color: #282a36;
+            background-color: var(--vscode-sideBar-background);
             padding: 12px 16px;
             border-radius: 12px;
             margin-bottom: 16px;
@@ -658,7 +687,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
       <body>
         <h3>Sui Move Runner</h3>
 
-        <div class="section" style="text-align:center; font-weight:bold; font-size:1.1rem; color:#61dafb;">
+        <div class="section" style="text-align:center; font-weight:bold; font-size:1.1rem; color: var(--vscode-editor-focusBorder);">
           ${this.activeEnv || 'None'}
         </div>
 
@@ -704,24 +733,24 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             <button onclick="sendUpgrade()">⬆️ Upgrade</button>
           </div>
           ` : ''}
+
+          <div class="section">
+            <h4>Test Package</h4>
+            <input id="testFuncName" placeholder="Test function name (optional)" />
+            <button onclick="sendTest()">🧪 Test</button>
+          </div>
+
+          <div class="section">
+            <h4>Call Function</h4>
+            <input id="pkg" value="${pkg}" readonly />
+            <select id="functionSelect">${modulesHtml}</select>
+
+            <div id="typeArgsContainer"></div>
+            <div id="argsContainer"></div>
+
+            <button onclick="sendCall()">🧠 Call</button>
+          </div>
         ` : ''}
-
-        <div class="section">
-          <h4>Test Package</h4>
-          <input id="testFuncName" placeholder="Test function name (optional)" />
-          <button onclick="sendTest()">🧪 Test</button>
-        </div>
-
-        <div class="section">
-          <h4>Call Function</h4>
-          <input id="pkg" value="${pkg}" readonly />
-          <select id="functionSelect">${modulesHtml}</select>
-
-          <div id="typeArgsContainer"></div>
-          <div id="argsContainer"></div>
-
-          <button onclick="sendCall()">🧠 Call</button>
-        </div>
 
         <script>
           const vscode = acquireVsCodeApi();
@@ -804,6 +833,14 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
               input.placeholder = type;
               argsContainer.appendChild(input);
             });
+          });
+
+          // Trigger initial load of inputs for the default selected function
+          window.addEventListener('load', () => {
+            const functionSelect = document.getElementById('functionSelect');
+            if (functionSelect) {
+              functionSelect.dispatchEvent(new Event('change'));
+            }
           });
 
           document.getElementById('envSwitcher').addEventListener('change', (e) => {
