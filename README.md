@@ -6,14 +6,14 @@
 
 ## ✅ Features
 
-✅ Create new Sui Move packages with one click
-🔨 Build Move packages with live output
-🚀 Publish and upgrade packages seamlessly
-🧪 Run tests and view results inside VS Code
-🔁 Call entry functions with flexible argument inputs
-🌐 Manage multiple Sui environments (Testnet, Devnet, Mainnet, Custom)
-👛 Switch between wallets and view balances
-🌓 Dark-themed, responsive UI for a smooth dev experience
+* ✅ Create new Sui Move packages with one click
+* 🔨 Build Move packages with live output
+* 🚀 Publish and upgrade packages seamlessly
+* 🧪 Run tests and view results inside VS Code
+* 🔁 Call public functions with flexible argument inputs
+* 🌐 Manage multiple Sui environments (Testnet, Devnet, Mainnet)
+* 👛 Switch between wallets and view balances
+* 🌓 Dark-themed, responsive UI for a smooth dev experience
 
 ---
 
@@ -57,7 +57,7 @@ This extension does not expose any custom settings at this time.
 
 ## 🗒️ Release Notes
 
-### 1.0.0
+### 0.0.1
 
 * Initial release of **Sui Move Runner**
 * Sidebar UI with commands for:

@@ -87,7 +87,6 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
         };
       }
     } catch {
-      // ignore parse errors
     }
     return null;
   }
@@ -250,13 +249,20 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
           const alias = message.alias;
           if (!alias) return;
 
+          // Send status update to webview
+          this.view?.webview.postMessage({ command: 'set-status', message: `Changing environment to ${alias}...` });
+
           const exists = this.availableEnvs.some(e => e.alias === alias);
           if (!exists) {
             const rpc = await vscode.window.showInputBox({ prompt: `RPC for new env '${alias}'` });
-            if (!rpc) return;
+            if (!rpc) {
+              this.view?.webview.postMessage({ command: 'set-status', message: '' });
+              return;
+            }
             try {
               await runCommand(`sui client new-env --alias ${alias} --rpc ${rpc}`);
             } catch (err) {
+              this.view?.webview.postMessage({ command: 'set-status', message: '' });
               vscode.window.showErrorMessage(`❌ Failed to add new env: ${err}`);
               return;
             }
@@ -268,9 +274,11 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             await this.refreshEnvs();
             await this.refreshWallets();
 
+            this.view?.webview.postMessage({ command: 'switch-env-done', alias });
             vscode.window.showInformationMessage(`🔄 Switched to env: ${alias}`);
             this.renderHtml(this.view!);
           } catch (err) {
+            this.view?.webview.postMessage({ command: 'set-status', message: '' });
             vscode.window.showErrorMessage(`❌ Failed to switch env: ${err}`);
           }
           break;
@@ -279,14 +287,19 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
         case 'switch-wallet': {
           const address = message.address;
           if (!address) return;
+          const shortAddress = address.slice(0, 6) + '...' + address.slice(-4);
+          this.view?.webview.postMessage({ command: 'set-status', message: `Changing wallet to ${shortAddress}...` });
+
           try {
             await runCommand(`sui client switch --address ${address}`);
 
             await this.refreshWallets();
-
+            const shortAddress = address.slice(0, 6) + '...' + address.slice(-4);
+            this.view?.webview.postMessage({ command: 'switch-wallet-done', address });
             vscode.window.showInformationMessage(`💻 Switched wallet to ${address}`);
             this.renderHtml(this.view!);
           } catch (err) {
+            this.view?.webview.postMessage({ command: 'set-status', message: '' });
             vscode.window.showErrorMessage(`❌ Failed to switch wallet: ${err}`);
           }
           break;
@@ -548,10 +561,19 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             max-height: 120px;
             overflow-y: auto;
           }
+          #statusMessage {
+            font-weight: bold;
+            color: var(--vscode-editor-foreground);
+            min-height: 1.2em;
+            margin-bottom: 1rem;
+            text-align: center;
+          }
         </style>
       </head>
       <body>
         <h3>Sui Move Runner</h3>
+
+        <div id="statusMessage"></div>
 
         <div class="section" style="text-align:center; font-weight:bold; font-size:1.1rem; color: var(--vscode-editor-focusBorder);">
           ${this.activeEnv || 'None'}
@@ -622,6 +644,11 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
         <script>
           const vscode = acquireVsCodeApi();
           const argsMapping = ${JSON.stringify(argsMapping)};
+
+          function setStatusMessage(msg) {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = msg || '';
+          }
 
           function sendCreate() {
             vscode.postMessage({ command: 'create', packageName: document.getElementById('packageName').value });
@@ -711,11 +738,15 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
 
           document.getElementById('envSwitcher').addEventListener('change', (e) => {
             const alias = e.target.value;
+            setStatusMessage('Changing environment to ' + alias + '...');
             vscode.postMessage({ command: 'switch-env', alias });
           });
 
           document.getElementById('walletSwitcher').addEventListener('change', (e) => {
             const address = e.target.value;
+            const shortAddress = address.slice(0, 6) + '...' + address.slice(-4);
+            setStatusMessage('Changing wallet to ' + shortAddress + '...');
+
             vscode.postMessage({ command: 'switch-wallet', address });
           });
 
@@ -728,6 +759,20 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
 
           document.getElementById('createAddressBtn').addEventListener('click', () => {
             vscode.postMessage({ command: 'create-address' });
+          });
+
+          // Listen for extension messages
+          window.addEventListener('message', event => {
+            const message = event.data;
+            if (message.command === 'switch-env-done') {
+              setStatusMessage('Environment switched to ' + message.alias);
+            } else if (message.command === 'switch-wallet-done') {
+              const shortAddress =  message.address.slice(0, 6) + '...' +  message.address.slice(-4);
+             
+              setStatusMessage('Wallet switched to ' + shortAddress);
+            } else if (message.command === 'set-status') {
+              setStatusMessage(message.message);
+            }
           });
         </script>
       </body>
