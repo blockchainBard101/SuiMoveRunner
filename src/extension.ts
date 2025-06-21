@@ -33,8 +33,6 @@ function waitForFolder(folderPath: string, timeout: number): Promise<boolean> {
   });
 }
 
-
-
 export function activate(context: vscode.ExtensionContext) {
   const provider = new SuiRunnerSidebar();
   context.subscriptions.push(
@@ -65,17 +63,16 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
   }
 
   async refreshEnvs() {
-  try {
-    const envOutput = await runCommand(`sui client envs --json`);
-    const [envsList, currentEnv] = JSON.parse(envOutput);
-    this.activeEnv = currentEnv;
-    this.availableEnvs = envsList.map((e: any) => ({ alias: e.alias, rpc: e.rpc }));
-  } catch {
-    this.activeEnv = 'None';
-    this.availableEnvs = [];
+    try {
+      const envOutput = await runCommand(`sui client envs --json`);
+      const [envsList, currentEnv] = JSON.parse(envOutput);
+      this.activeEnv = currentEnv;
+      this.availableEnvs = envsList.map((e: any) => ({ alias: e.alias, rpc: e.rpc }));
+    } catch {
+      this.activeEnv = 'None';
+      this.availableEnvs = [];
+    }
   }
-}
-
 
   async renderUpgradeCapInfo(rootPath: string, pkg: string) {
     const upgradeTomlPath = path.join(rootPath, 'upgrade.toml');
@@ -136,30 +133,13 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             return;
           }
           const rootPath = workspaceFolder.uri.fsPath;
-          const outputChannel = vscode.window.createOutputChannel('Sui Move Build');
-          outputChannel.show(true);
-          outputChannel.appendLine(`Running 'sui move build' in ${rootPath}...\n`);
 
-          try {
-            const buildProcess = exec(`sui move build`, { cwd: rootPath });
+          const terminal = vscode.window.createTerminal({ name: 'Sui Move Build' });
+          terminal.show(true);
+          terminal.sendText(`cd "${rootPath}" && sui move build`, true);
 
-            buildProcess.stdout?.on('data', (data) => {
-              outputChannel.append(data.toString());
-            });
-            buildProcess.stderr?.on('data', (data) => {
-              outputChannel.append(data.toString());
-            });
+          vscode.window.showInformationMessage(`🛠️ Running 'sui move build' in ${rootPath}...`);
 
-            buildProcess.on('close', (code) => {
-              if (code === 0) {
-                vscode.window.showInformationMessage('✅ Build succeeded, see "Sui Move Build" output.');
-              } else {
-                vscode.window.showErrorMessage(`❌ Build failed with exit code ${code}, see "Sui Move Build" output.`);
-              }
-            });
-          } catch (err) {
-            vscode.window.showErrorMessage(`❌ Failed to run build: ${err}`);
-          }
           break;
         }
 
@@ -170,79 +150,13 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             return;
           }
           const rootPath = workspaceFolder.uri.fsPath;
-          const outputChannel = vscode.window.createOutputChannel('Sui Move Publish');
-          outputChannel.show(true);
-          outputChannel.appendLine(`Running 'sui client publish' in ${rootPath}...\n`);
 
-          try {
-            const publishProcess = exec(`sui client publish`, { cwd: rootPath });
+          const terminal = vscode.window.createTerminal({ name: 'Sui Move Publish' });
+          terminal.show(true);
+          terminal.sendText(`cd "${rootPath}" && sui client publish`, true);
 
-            let fullOutput = '';
+          vscode.window.showInformationMessage(`🚀 Running 'sui client publish' in ${rootPath}...`);
 
-            publishProcess.stdout?.on('data', (data) => {
-              fullOutput += data.toString();
-              outputChannel.append(data.toString());
-            });
-
-            publishProcess.stderr?.on('data', (data) => {
-              fullOutput += data.toString();
-              outputChannel.append(data.toString());
-            });
-
-            publishProcess.on('close', async (code) => {
-              if (code === 0) {
-                vscode.window.showInformationMessage('✅ Publish succeeded, see "Sui Move Publish" output.');
-
-                const lines = fullOutput.split('\n');
-                let upgradeCapId = '';
-
-                for (let i = 0; i < lines.length; i++) {
-                  if (lines[i].includes('ObjectType: 0x2::package::UpgradeCap')) {
-                    for (let j = i - 1; j >= 0; j--) {
-                      const idMatch = lines[j].match(/ObjectID:\s*(0x[a-fA-F0-9]+)/);
-                      if (idMatch) {
-                        upgradeCapId = idMatch[1];
-                        break;
-                      }
-                    }
-                    if (upgradeCapId) break;
-                  }
-                }
-
-                if (upgradeCapId) {
-                  const upgradeTomlPath = path.join(rootPath, 'upgrade.toml');
-
-                  let pkg = '';
-                  try {
-                    const lockFile = fs.readFileSync(path.join(rootPath, 'Move.lock'), 'utf-8');
-                    const lockData = toml.parse(lockFile);
-                    const envSection = lockData.env?.[this.activeEnv] || lockData.env?.default || {};
-                    pkg = envSection['latest-published-id'] || envSection['original-published-id'] || '';
-                  } catch {
-                    pkg = '';
-                  }
-
-                  const upgradeTomlContent = `[upgrade]
-upgrade_cap = "${upgradeCapId}"
-package_id = "${pkg}"
-environment = "${this.activeEnv}"
-created_at = "${new Date().toISOString()}"
-`;
-
-                  fs.writeFileSync(upgradeTomlPath, upgradeTomlContent);
-                  vscode.window.showInformationMessage(`📄 UpgradeCap saved to upgrade.toml: ${upgradeCapId}`);
-                } else {
-                  vscode.window.showWarningMessage('⚠️ UpgradeCap not found in publish output.');
-                }
-
-                this.renderHtml(this.view!);
-              } else {
-                vscode.window.showErrorMessage(`❌ Publish failed with exit code ${code}, see "Sui Move Publish" output.`);
-              }
-            });
-          } catch (err) {
-            vscode.window.showErrorMessage(`❌ Failed to run publish: ${err}`);
-          }
           break;
         }
 
@@ -273,75 +187,12 @@ created_at = "${new Date().toISOString()}"
             break;
           }
 
-          const outputChannel = vscode.window.createOutputChannel('Sui Move Upgrade');
-          outputChannel.show(true);
-          outputChannel.appendLine(`Running 'sui client upgrade --upgrade-capability ${upgradeCapInfo.upgradeCap}' in ${rootPath}...\n`);
+          const terminal = vscode.window.createTerminal({ name: 'Sui Move Upgrade' });
+          terminal.show(true);
+          terminal.sendText(`cd "${rootPath}" && sui client upgrade --upgrade-capability ${upgradeCapInfo.upgradeCap}`, true);
 
-          try {
-            const upgradeProcess = exec(`sui client upgrade --upgrade-capability ${upgradeCapInfo.upgradeCap}`, { cwd: rootPath });
+          vscode.window.showInformationMessage(`⬆️ Running 'sui client upgrade' in ${rootPath}...`);
 
-            let fullOutput = '';
-
-            upgradeProcess.stdout?.on('data', (data) => {
-              fullOutput += data.toString();
-              outputChannel.append(data.toString());
-            });
-            upgradeProcess.stderr?.on('data', (data) => {
-              fullOutput += data.toString();
-              outputChannel.append(data.toString());
-            });
-
-            upgradeProcess.on('close', (code) => {
-              if (code === 0) {
-                const lines = fullOutput.split('\n');
-                let newUpgradeCapId = '';
-
-                for (let i = 0; i < lines.length; i++) {
-                  if (lines[i].includes('ObjectType: 0x2::package::UpgradeCap')) {
-                    for (let j = i - 1; j >= 0; j--) {
-                      const idMatch = lines[j].match(/ObjectID:\s*(0x[a-fA-F0-9]+)/);
-                      if (idMatch) {
-                        newUpgradeCapId = idMatch[1];
-                        break;
-                      }
-                    }
-                    if (newUpgradeCapId) break;
-                  }
-                }
-
-                if (newUpgradeCapId) {
-                  let pkg = '';
-                  try {
-                    const lockFile = fs.readFileSync(path.join(rootPath, 'Move.lock'), 'utf-8');
-                    const lockData = toml.parse(lockFile);
-                    const envSection = lockData.env?.[this.activeEnv] || lockData.env?.default || {};
-                    pkg = envSection['latest-published-id'] || envSection['original-published-id'] || '';
-                  } catch {
-                    pkg = '';
-                  }
-
-                  const upgradeTomlContent = `[upgrade]
-upgrade_cap = "${newUpgradeCapId}"
-package_id = "${pkg}"
-environment = "${this.activeEnv}"
-updated_at = "${new Date().toISOString()}"
-`;
-
-                  fs.writeFileSync(upgradeTomlPath, upgradeTomlContent);
-
-                  vscode.window.showInformationMessage(`✅ Upgrade succeeded. New UpgradeCap saved to upgrade.toml: ${newUpgradeCapId}`);
-                } else {
-                  vscode.window.showWarningMessage('⚠️ Could not find new UpgradeCap ObjectID in upgrade output.');
-                }
-
-                this.renderHtml(this.view!);
-              } else {
-                vscode.window.showErrorMessage(`❌ Upgrade failed with exit code ${code}, see "Sui Move Upgrade" output.`);
-              }
-            });
-          } catch (err) {
-            vscode.window.showErrorMessage(`❌ Failed to run upgrade: ${err}`);
-          }
           break;
         }
 
@@ -353,43 +204,29 @@ updated_at = "${new Date().toISOString()}"
           }
           const rootPath = workspaceFolder.uri.fsPath;
           const funcName = message.functionName?.trim() || '';
-          const outputChannel = vscode.window.createOutputChannel('Sui Move Test');
-          outputChannel.show(true);
+
+          const terminal = vscode.window.createTerminal({ name: 'Sui Move Test' });
+          terminal.show(true);
 
           let cmd = 'sui move test';
           if (funcName) {
             cmd += ` ${funcName}`;
           }
+          terminal.sendText(`cd "${rootPath}" && ${cmd}`, true);
 
-          outputChannel.appendLine(`Running '${cmd}' in ${rootPath}...\n`);
+          vscode.window.showInformationMessage(`🧪 Running '${cmd}' in ${rootPath}...`);
 
-          try {
-            const testProcess = exec(cmd, { cwd: rootPath });
-
-            testProcess.stdout?.on('data', (data) => {
-              outputChannel.append(data.toString());
-            });
-            testProcess.stderr?.on('data', (data) => {
-              outputChannel.append(data.toString());
-            });
-
-            testProcess.on('close', (code) => {
-              if (code === 0) {
-                vscode.window.showInformationMessage('✅ Test succeeded, see "Sui Move Test" output.');
-              } else {
-                vscode.window.showErrorMessage(`❌ Test failed with exit code ${code}, see "Sui Move Test" output.`);
-              }
-            });
-          } catch (err) {
-            vscode.window.showErrorMessage(`❌ Failed to run test: ${err}`);
-          }
           break;
         }
 
         case 'call': {
           const { pkg, module, func, args, typeArgs } = message;
           const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-          const rootPath = workspaceFolder?.uri.fsPath;
+          if (!workspaceFolder) {
+            vscode.window.showErrorMessage('No workspace open');
+            return;
+          }
+          const rootPath = workspaceFolder.uri.fsPath;
 
           let callCmd = `sui client call --package ${pkg} --module ${module} --function ${func}`;
 
@@ -400,30 +237,12 @@ updated_at = "${new Date().toISOString()}"
             callCmd += ' --args ' + args.join(' ');
           }
 
-          const outputChannel = vscode.window.createOutputChannel('Sui Move Call');
-          outputChannel.show(true);
-          outputChannel.appendLine(`Running '${callCmd}' in ${rootPath}...\n`);
+          const terminal = vscode.window.createTerminal({ name: 'Sui Move Call' });
+          terminal.show(true);
+          terminal.sendText(`cd "${rootPath}" && ${callCmd}`, true);
 
-          try {
-            const callProcess = exec(callCmd, { cwd: rootPath });
+          vscode.window.showInformationMessage(`🧠 Running '${callCmd}' in ${rootPath}...`);
 
-            callProcess.stdout?.on('data', (data) => {
-              outputChannel.append(data.toString());
-            });
-            callProcess.stderr?.on('data', (data) => {
-              outputChannel.append(data.toString());
-            });
-
-            callProcess.on('close', (code) => {
-              if (code === 0) {
-                vscode.window.showInformationMessage('✅ Call succeeded, see "Sui Move Call" output.');
-              } else {
-                vscode.window.showErrorMessage(`❌ Call failed with exit code ${code}, see "Sui Move Call" output.`);
-              }
-            });
-          } catch (err) {
-            vscode.window.showErrorMessage(`❌ Failed to run call: ${err}`);
-          }
           break;
         }
 
@@ -446,7 +265,6 @@ updated_at = "${new Date().toISOString()}"
           try {
             await runCommand(`sui client switch --env ${alias}`);
 
-            // Refresh environment and wallet info before re-rendering
             await this.refreshEnvs();
             await this.refreshWallets();
 
@@ -464,7 +282,6 @@ updated_at = "${new Date().toISOString()}"
           try {
             await runCommand(`sui client switch --address ${address}`);
 
-            // Refresh wallet info before re-rendering
             await this.refreshWallets();
 
             vscode.window.showInformationMessage(`💻 Switched wallet to ${address}`);
@@ -498,7 +315,6 @@ updated_at = "${new Date().toISOString()}"
           }
           break;
         }
-
 
         case 'showCopyNotification': {
           vscode.window.showInformationMessage('📋 Wallet address copied to clipboard!');
@@ -886,7 +702,6 @@ updated_at = "${new Date().toISOString()}"
             });
           });
 
-          // Trigger initial load of inputs for the default selected function
           window.addEventListener('load', () => {
             const functionSelect = document.getElementById('functionSelect');
             if (functionSelect) {
@@ -911,7 +726,6 @@ updated_at = "${new Date().toISOString()}"
             });
           });
 
-          // New Address Button Handler
           document.getElementById('createAddressBtn').addEventListener('click', () => {
             vscode.postMessage({ command: 'create-address' });
           });
@@ -922,4 +736,4 @@ updated_at = "${new Date().toISOString()}"
   }
 }
 
-export function deactivate() { }
+export function deactivate() {}
