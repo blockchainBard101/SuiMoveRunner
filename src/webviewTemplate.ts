@@ -9,6 +9,7 @@ export function getWebviewContent(params: {
   upgradeCapInfo: { upgradeCap: string; packageId: string } | null;
   modulesHtml: string;
   argsMapping: Record<string, { argTypes: string[]; typeParams: string[] }>;
+  iconUri: string;
 }): string {
   const {
     activeEnv,
@@ -21,6 +22,8 @@ export function getWebviewContent(params: {
     upgradeCapInfo,
     modulesHtml,
     argsMapping,
+    iconUri,
+    
   } = params;
 
   const envOptions = availableEnvs
@@ -308,7 +311,8 @@ export function getWebviewContent(params: {
 </head>
 <body>
   <div class="header">
-    <h1>⚡ Sui Move Runner</h1>
+    <img src="${iconUri}" alt="⚡" width="32" height="32">
+    <h1> Sui Move Runner</h1>
   </div>
 
   <div class="status-bar">

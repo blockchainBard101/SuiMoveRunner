@@ -35,7 +35,7 @@ function waitForFolder(folderPath: string, timeout: number): Promise<boolean> {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  const provider = new SuiRunnerSidebar();
+  const provider = new SuiRunnerSidebar(context.extensionUri);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider('suiRunner.sidebarView', provider)
   );
@@ -48,6 +48,11 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
   private activeWallet: string = '';
   private wallets: { name: string; address: string }[] = [];
   private suiBalance: string = '0';
+  private _extensionUri: vscode.Uri;
+
+  constructor(extensionUri: vscode.Uri) {
+    this._extensionUri = extensionUri;
+  }
 
   async refreshWallets() {
     try {
@@ -614,10 +619,12 @@ updated_at = "${new Date().toISOString()}"
     } catch {
       modulesHtml = '<option disabled selected>Failed to load modules</option>';
     }
-
+    const webview = view.webview;
     // const envOptions = this.availableEnvs.map(e => `<option value="${e.alias}" ${e.alias === this.activeEnv ? 'selected' : ''}>${e.alias}</option>`).join('');
     // const shortWallet = this.activeWallet.slice(0, 6) + '...' + this.activeWallet.slice(-4);
-
+    const iconUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this._extensionUri, 'media', 'logo2.png')
+    );
     view.webview.html = getWebviewContent({
       activeEnv: this.activeEnv,
       availableEnvs: this.availableEnvs,
@@ -629,6 +636,7 @@ updated_at = "${new Date().toISOString()}"
       upgradeCapInfo,
       modulesHtml,
       argsMapping,
+      iconUri: iconUri.toString(),
     });
   }
 }
