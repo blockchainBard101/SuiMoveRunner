@@ -39,126 +39,297 @@ export function getWebviewContent(params: {
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    /* Reset and base */
     * {
       box-sizing: border-box;
-    }
-    body {
-      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-      padding: 16px;
       margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--vscode-font-family), -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: var(--vscode-font-size, 13px);
+      padding: 12px;
       background-color: var(--vscode-editor-background);
       color: var(--vscode-editor-foreground);
+      line-height: 1.4;
     }
-    h3 {
-      margin-bottom: 1rem;
-      font-weight: 700;
-      color: var(--vscode-editor-focusBorder);
+
+    /* Header */
+    .header {
       text-align: center;
+      margin-bottom: 16px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--vscode-panel-border);
     }
-    p, h4 {
-      margin: 0.8rem 0 0.4rem 0;
+
+    .header h1 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--vscode-titleBar-activeForeground);
+      margin: 0;
     }
-    select, input[type="text"], input[type="search"], input {
-      width: 100%;
-      padding: 8px 10px;
+
+    /* Status bar */
+    .status-bar {
+      background-color: var(--vscode-statusBar-background);
+      border: 1px solid var(--vscode-statusBar-border, var(--vscode-panel-border));
+      border-radius: 4px;
+      padding: 6px 10px;
       margin-bottom: 12px;
-      border-radius: 6px;
-      border: 1.5px solid var(--vscode-dropdown-border);
-      background-color: var(--vscode-dropdown-background);
-      color: var(--vscode-input-foreground);
-      font-size: 0.9rem;
-      transition: border-color 0.2s ease;
+      font-size: 12px;
     }
-    select:focus, input:focus {
-      outline: none;
-      border-color: var(--vscode-inputValidation-infoBorder);
-      box-shadow: 0 0 6px var(--vscode-inputValidation-infoBorder);
+
+    #statusMessage {
+      color: var(--vscode-statusBar-foreground);
+      text-align: center;
+      min-height: 16px;
     }
-    button {
-      width: 100%;
-      padding: 6px 0;
-      background-color: var(--vscode-button-background);
-      border: none;
-      border-radius: 6px;
-      color: var(--vscode-button-foreground);
-      font-weight: 600;
-      font-size: 0.85rem;
-      cursor: pointer;
-      margin-bottom: 1rem;
-      transition: background-color 0.3s ease;
-    }
-    button:hover {
-      background-color: var(--vscode-button-hoverBackground);
-    }
-    #walletAddress {
-      user-select: text;
-      cursor: pointer;
-      color: var(--vscode-editorWarning-foreground);
-      font-weight: 600;
-      display: inline-block;
-      padding: 4px 8px;
-      border-radius: 5px;
-      background-color: var(--vscode-editorWarning-background);
-      transition: background-color 0.3s ease;
-    }
-    #walletAddress:hover {
-      background-color: var(--vscode-inputValidation-infoBackground);
-      color: var(--vscode-input-foreground);
-    }
-    #typeArgsContainer > input,
-    #argsContainer > input {
-      margin-bottom: 10px;
-      border-radius: 6px;
-      border: 1.5px solid var(--vscode-dropdown-border);
-      background-color: var(--vscode-dropdown-background);
-      padding: 8px 10px;
-      color: var(--vscode-input-foreground);
-      font-size: 0.9rem;
-      width: 100%;
-    }
-    b {
-      display: block;
-      margin-bottom: 6px;
-      color: var(--vscode-editorInfo-foreground);
-      font-size: 1rem;
-    }
+
+    /* Sections */
     .section {
       background-color: var(--vscode-sideBar-background);
-      padding: 12px 16px;
-      border-radius: 12px;
-      margin-bottom: 16px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+      border: 1px solid var(--vscode-panel-border);
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 12px;
     }
-    #argsContainer, #typeArgsContainer {
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--vscode-foreground);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Environment indicator */
+    .env-display {
+      background-color: var(--vscode-badge-background);
+      color: var(--vscode-badge-foreground);
+      padding: 4px 8px;
+      border-radius: 4px;
+      text-align: center;
+      font-weight: 500;
+      font-size: 12px;
+      margin-bottom: 12px;
+    }
+
+    /* Form elements */
+    select, input[type="text"], input[type="search"], input {
+      width: 100%;
+      padding: 6px 8px;
+      margin-bottom: 8px;
+      border-radius: 4px;
+      border: 1px solid var(--vscode-dropdown-border);
+      background-color: var(--vscode-dropdown-background);
+      color: var(--vscode-dropdown-foreground);
+      font-size: 12px;
+      font-family: inherit;
+      transition: border-color 0.2s ease;
+    }
+
+    select:focus, input:focus {
+      outline: none;
+      border-color: var(--vscode-focusBorder);
+      box-shadow: 0 0 0 1px var(--vscode-focusBorder);
+    }
+
+    /* Buttons */
+    button {
+      padding: 6px 12px;
+      border: 1px solid var(--vscode-button-border, transparent);
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      margin-bottom: 6px;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      min-height: 28px;
+    }
+
+    .btn-primary {
+      background-color: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      width: 100%;
+    }
+
+    .btn-primary:hover {
+      background-color: var(--vscode-button-hoverBackground);
+    }
+
+    .btn-secondary {
+      background-color: var(--vscode-button-secondaryBackground);
+      color: var(--vscode-button-secondaryForeground);
+      width: 100%;
+    }
+
+    .btn-secondary:hover {
+      background-color: var(--vscode-button-secondaryHoverBackground);
+    }
+
+    .btn-small {
+      padding: 4px 8px;
+      font-size: 11px;
+      min-height: 24px;
+    }
+
+    /* Wallet info */
+    .wallet-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+
+    .wallet-address {
+      background-color: var(--vscode-textCodeBlock-background);
+      color: var(--vscode-textPreformat-foreground);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: var(--vscode-editor-font-family, monospace);
+      font-size: 11px;
+      cursor: pointer;
+      user-select: text;
+      transition: background-color 0.2s ease;
+    }
+
+    .wallet-address:hover {
+      background-color: var(--vscode-list-hoverBackground);
+    }
+
+    .balance {
+      color: var(--vscode-terminal-ansiGreen);
+      font-weight: 500;
+    }
+
+    /* Function inputs */
+    .input-group {
+      margin-bottom: 10px;
+    }
+
+    .input-label {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--vscode-foreground);
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    #typeArgsContainer, #argsContainer {
       max-height: 120px;
       overflow-y: auto;
+      border: 1px solid var(--vscode-panel-border);
+      border-radius: 4px;
+      padding: 6px;
+      margin-bottom: 8px;
+      background-color: var(--vscode-editor-background);
     }
-    #statusMessage {
-      font-weight: bold;
-      color: var(--vscode-editor-foreground);
-      min-height: 1.2em;
-      margin-bottom: 1rem;
-      text-align: center;
+
+    #typeArgsContainer:empty, #argsContainer:empty {
+      display: none;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--vscode-scrollbarSlider-background);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--vscode-scrollbarSlider-hoverBackground);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--vscode-scrollbarSlider-activeBackground);
+    }
+
+    /* Compact layout */
+    .compact-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .compact-row > * {
+      margin-bottom: 0;
+    }
+
+    .flex-1 {
+      flex: 1;
+    }
+
+    /* Icons */
+    .icon {
+      width: 14px;
+      height: 14px;
+      opacity: 0.8;
+    }
+
+    /* Loading state */
+    .loading {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid var(--vscode-progressBar-background);
+      border-radius: 50%;
+      border-top-color: var(--vscode-button-foreground);
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 300px) {
+      body {
+        padding: 8px;
+      }
+      
+      .section {
+        padding: 8px;
+      }
     }
   </style>
 </head>
 <body>
-  <h3>Sui Move Runner</h3>
+  <div class="header">
+    <h1>⚡ Sui Move Runner</h1>
+  </div>
 
-  <div id="statusMessage"></div>
-
-  <div class="section" style="text-align:center; font-weight:bold; font-size:1.1rem; color: var(--vscode-editor-focusBorder);">
-    ${activeEnv || "None"}
+  <div class="status-bar">
+    <div id="statusMessage">Ready</div>
   </div>
 
   <div class="section">
+    <button id="refreshBtn" class="btn-secondary">🔄 Refresh</button>
+  </div>
+
+  <div class="env-display">
+    🌐 ${activeEnv || "No Environment"}
+  </div>
+
+  <div class="section">
+    <div class="section-title">🔧 Environment</div>
     <select id="envSwitcher">${envOptions}</select>
   </div>
 
   <div class="section">
-    <p><strong>Wallet</strong></p>
+    <div class="section-title">👤 Wallet</div>
     <select id="walletSwitcher">
       ${wallets
         .map(
@@ -168,58 +339,71 @@ export function getWebviewContent(params: {
         )
         .join("")}
     </select>
-    <p>Address: <span id="walletAddress" title="Click to copy">${shortWallet}</span></p>
-    <p><strong>Balance:</strong> ${suiBalance} SUI</p>
-    <button id="createAddressBtn">➕ Create New Address</button>
+    <div class="wallet-row">
+      <span>Address:</span>
+      <span id="walletAddress" class="wallet-address" title="Click to copy">${shortWallet}</span>
+    </div>
+    <div class="wallet-row">
+      <span>Balance:</span>
+      <span class="balance">${suiBalance} SUI</span>
+    </div>
+    <button id="createAddressBtn" class="btn-secondary btn-small">➕ New Address</button>
   </div>
 
   ${
     !isMoveProject
       ? `<div class="section">
-    <h4>Create Package</h4>
-    <input id="packageName" placeholder="Package name" />
-    <button onclick="sendCreate()">📦 Create</button>
-  </div>`
+      <div class="section-title">📦 Create Package</div>
+      <input id="packageName" placeholder="Package name" />
+      <button onclick="sendCreate()" class="btn-primary">Create</button>
+    </div>`
       : ""
   }
 
   ${
     isMoveProject
       ? `<div class="section">
-    <h4>Build Package</h4>
-    <button onclick="sendBuild()">🛠️ Build</button>
-  </div>
+      <div class="section-title">🛠️ Build</div>
+      <button onclick="sendBuild()" class="btn-primary">Build Package</button>
+    </div>
 
-  <div class="section">
-    <h4>Publish Package</h4>
-    <button onclick="sendPublish()">🚀 ${pkg ? "Re-publish" : "Publish"}</button>
-  </div>
+    <div class="section">
+      <div class="section-title">🚀 Publish</div>
+      <button onclick="sendPublish()" class="btn-primary">${pkg ? "Re-publish" : "Publish"}</button>
+    </div>
 
-  ${
-    upgradeCapInfo
-      ? `<div class="section">
-    <h4>Upgrade Package</h4>
-    <button onclick="sendUpgrade()">⬆️ Upgrade</button>
-  </div>`
-      : ""
-  }
+    ${
+      upgradeCapInfo
+        ? `<div class="section">
+        <div class="section-title">⬆️ Upgrade</div>
+        <button onclick="sendUpgrade()" class="btn-primary">Upgrade Package</button>
+      </div>`
+        : ""
+    }
 
-  <div class="section">
-    <h4>Test Package</h4>
-    <input id="testFuncName" placeholder="Test function name (optional)" />
-    <button onclick="sendTest()">🧪 Test</button>
-  </div>
+    <div class="section">
+      <div class="section-title">🧪 Test</div>
+      <input id="testFuncName" placeholder="Test function (optional)" />
+      <button onclick="sendTest()" class="btn-primary">Run Tests</button>
+    </div>
 
-  <div class="section">
-    <h4>Call Function</h4>
-    <input id="pkg" value="${pkg}" readonly />
-    <select id="functionSelect">${modulesHtml}</select>
+    <div class="section">
+      <div class="section-title">⚡ Call Function</div>
+      <div class="input-group">
+        <label class="input-label">Package ID</label>
+        <input id="pkg" value="${pkg}" readonly />
+      </div>
+      
+      <div class="input-group">
+        <label class="input-label">Function</label>
+        <select id="functionSelect">${modulesHtml}</select>
+      </div>
 
-    <div id="typeArgsContainer"></div>
-    <div id="argsContainer"></div>
+      <div id="typeArgsContainer"></div>
+      <div id="argsContainer"></div>
 
-    <button onclick="sendCall()">🧠 Call</button>
-  </div>`
+      <button onclick="sendCall()" class="btn-primary">Execute</button>
+    </div>`
       : ""
   }
 
@@ -229,33 +413,49 @@ export function getWebviewContent(params: {
 
     function setStatusMessage(msg) {
       const statusEl = document.getElementById('statusMessage');
-      statusEl.textContent = msg || '';
+      statusEl.textContent = msg || 'Ready';
     }
 
     function sendCreate() {
-      vscode.postMessage({ command: 'create', packageName: document.getElementById('packageName').value });
+      const packageName = document.getElementById('packageName').value;
+      if (!packageName.trim()) {
+        setStatusMessage('Please enter package name');
+        return;
+      }
+      setStatusMessage('Creating package...');
+      vscode.postMessage({ command: 'create', packageName });
     }
 
     function sendBuild() {
+      setStatusMessage('Building...');
       vscode.postMessage({ command: 'build' });
     }
 
     function sendPublish() {
+      setStatusMessage('Publishing...');
       vscode.postMessage({ command: 'publish' });
     }
 
     function sendUpgrade() {
+      setStatusMessage('Upgrading...');
       vscode.postMessage({ command: 'upgrade' });
     }
 
     function sendTest() {
       const funcName = document.getElementById('testFuncName').value.trim();
+      setStatusMessage('Running tests...');
       vscode.postMessage({ command: 'test', functionName: funcName });
     }
 
     function sendCall() {
       const pkg = document.getElementById('pkg').value;
       const selected = document.getElementById('functionSelect').selectedOptions[0];
+      
+      if (!selected) {
+        setStatusMessage('Please select a function');
+        return;
+      }
+
       const module = selected.getAttribute('data-mod');
       const func = selected.value;
       const key = module + '::' + func;
@@ -267,50 +467,52 @@ export function getWebviewContent(params: {
       const typeArgElements = Array.from(document.querySelectorAll('#typeArgsContainer input'));
       const typeArgs = typeArgElements.map(input => input.value);
 
+      setStatusMessage('Executing...');
       vscode.postMessage({ command: 'call', pkg, module, func, args, typeArgs });
     }
 
-    document.getElementById('functionSelect').addEventListener('change', () => {
+    // Function selector change handler
+    document.getElementById('functionSelect')?.addEventListener('change', () => {
       const selected = document.getElementById('functionSelect').selectedOptions[0];
-      const mod = selected.getAttribute('data-mod');
-      const func = selected.value;
+      const mod = selected?.getAttribute('data-mod');
+      const func = selected?.value;
       const key = mod + '::' + func;
       const { argTypes, typeParams } = argsMapping[key] || { argTypes: [], typeParams: [] };
 
       const argsContainer = document.getElementById('argsContainer');
       const typeArgsContainer = document.getElementById('typeArgsContainer');
-      argsContainer.innerHTML = '';
-      typeArgsContainer.innerHTML = '';
+      
+      if (argsContainer) argsContainer.innerHTML = '';
+      if (typeArgsContainer) typeArgsContainer.innerHTML = '';
 
       if (typeParams.length > 0) {
-        const typeArgsHeader = document.createElement('b');
+        const typeArgsHeader = document.createElement('div');
+        typeArgsHeader.className = 'input-label';
         typeArgsHeader.textContent = 'Type Arguments';
-        typeArgsHeader.style.display = 'block';
-        typeArgsHeader.style.marginBottom = '0.3em';
         typeArgsContainer.appendChild(typeArgsHeader);
 
         typeParams.forEach((tp, i) => {
           const input = document.createElement('input');
-          input.placeholder = tp && tp.length > 0 ? tp : 'TypeArg' + (i + 1);
+          input.placeholder = tp && tp.length > 0 ? tp : \`Type \${i + 1}\`;
           typeArgsContainer.appendChild(input);
         });
       }
 
       if (argTypes.length > 0) {
-        const argsHeader = document.createElement('b');
+        const argsHeader = document.createElement('div');
+        argsHeader.className = 'input-label';
         argsHeader.textContent = 'Arguments';
-        argsHeader.style.display = 'block';
-        argsHeader.style.marginBottom = '0.3em';
         argsContainer.appendChild(argsHeader);
-      }
 
-      argTypes.forEach((type) => {
-        const input = document.createElement('input');
-        input.placeholder = type;
-        argsContainer.appendChild(input);
-      });
+        argTypes.forEach((type) => {
+          const input = document.createElement('input');
+          input.placeholder = type;
+          argsContainer.appendChild(input);
+        });
+      }
     });
 
+    // Initialize function selector
     window.addEventListener('load', () => {
       const functionSelect = document.getElementById('functionSelect');
       if (functionSelect) {
@@ -318,40 +520,58 @@ export function getWebviewContent(params: {
       }
     });
 
-    document.getElementById('envSwitcher').addEventListener('change', (e) => {
+    // Environment switcher
+    document.getElementById('envSwitcher')?.addEventListener('change', (e) => {
       const alias = e.target.value;
-      setStatusMessage('Changing environment to ' + alias + '...');
+      setStatusMessage(\`Switching to \${alias}...\`);
       vscode.postMessage({ command: 'switch-env', alias });
     });
 
-    document.getElementById('walletSwitcher').addEventListener('change', (e) => {
+    // Wallet switcher
+    document.getElementById('walletSwitcher')?.addEventListener('change', (e) => {
       const address = e.target.value;
       const shortAddress = address.slice(0, 6) + '...' + address.slice(-4);
-      setStatusMessage('Changing wallet to ' + shortAddress + '...');
+      setStatusMessage(\`Switching wallet...\`);
       vscode.postMessage({ command: 'switch-wallet', address });
     });
 
-    document.getElementById('walletAddress').addEventListener('click', () => {
+    // Wallet address copy
+    document.getElementById('walletAddress')?.addEventListener('click', () => {
       const walletAddress = '${activeWallet}';
       navigator.clipboard.writeText(walletAddress).then(() => {
+        setStatusMessage('Address copied!');
         vscode.postMessage({ command: 'showCopyNotification' });
       });
     });
 
-    document.getElementById('createAddressBtn').addEventListener('click', () => {
+    // Create address button
+    document.getElementById('createAddressBtn')?.addEventListener('click', () => {
+      setStatusMessage('Creating address...');
       vscode.postMessage({ command: 'create-address' });
+    });
+
+    // Refresh button
+    document.getElementById('refreshBtn')?.addEventListener('click', () => {
+      setStatusMessage('Refreshing...');
+      vscode.postMessage({ command: 'refresh' });
     });
 
     // Listen for extension messages
     window.addEventListener('message', event => {
       const message = event.data;
-      if (message.command === 'switch-env-done') {
-        setStatusMessage('Environment switched to ' + message.alias);
-      } else if (message.command === 'switch-wallet-done') {
-        const shortAddress =  message.address.slice(0, 6) + '...' +  message.address.slice(-4);
-        setStatusMessage('Wallet switched to ' + shortAddress);
-      } else if (message.command === 'set-status') {
-        setStatusMessage(message.message);
+      switch(message.command) {
+        case 'switch-env-done':
+          setStatusMessage(\`Switched to \${message.alias}\`);
+          break;
+        case 'switch-wallet-done':
+          const shortAddress = message.address.slice(0, 6) + '...' + message.address.slice(-4);
+          setStatusMessage(\`Switched to \${shortAddress}\`);
+          break;
+        case 'set-status':
+          setStatusMessage(message.message);
+          break;
+        default:
+          break;
       }
     });
   </script>
