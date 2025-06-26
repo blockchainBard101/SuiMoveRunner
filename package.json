@@ -3,7 +3,7 @@
   "displayName": "Sui Move Runner",
   "description": "Deploy & Interact with Move Smart Contracts on Sui from the Sidebar",
   "publisher": "blockchainBard",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "repository": "https://github.com/blockchainBard101/SuiMoveRunner.git",
   "icon": "media/icon.png",
   "engines": {
