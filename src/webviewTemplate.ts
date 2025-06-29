@@ -10,6 +10,8 @@ export function getWebviewContent(params: {
   modulesHtml: string;
   argsMapping: Record<string, { argTypes: string[]; typeParams: string[] }>;
   iconUri: string;
+  localnetRunning?: boolean;
+  showFaucet?: boolean;
 }): string {
   const {
     activeEnv,
@@ -23,7 +25,8 @@ export function getWebviewContent(params: {
     modulesHtml,
     argsMapping,
     iconUri,
-    
+    localnetRunning = true,
+    showFaucet = false,
   } = params;
 
   const envOptions = availableEnvs
@@ -327,6 +330,28 @@ export function getWebviewContent(params: {
     🌐 ${activeEnv || "No Environment"}
   </div>
 
+  ${
+    activeEnv === "localnet" && !localnetRunning
+      ? `<div class="section">
+          <div class="section-title">🟢 Local Network</div>
+          <button id="startLocalnetBtn" class="btn-primary">Start Local Network</button>
+          <div style="font-size:11px;margin-top:6px;color:var(--vscode-descriptionForeground)">
+            Please start the local network.<br>
+            This will run <code>sui start --with-faucet --force-regenesis</code> in a new terminal.
+          </div>
+        </div>`
+      : ""
+  }
+
+  ${
+    showFaucet
+      ? `<div class="section">
+          <div class="section-title">💧 Faucet</div>
+          <button id="getFaucetBtn" class="btn-primary">Get Faucet</button>
+        </div>`
+      : ""
+  }
+
   <div class="section">
     <div class="section-title">🔧 Environment</div>
     <select id="envSwitcher">${envOptions}</select>
@@ -526,9 +551,8 @@ export function getWebviewContent(params: {
 
     // Environment switcher
     document.getElementById('envSwitcher')?.addEventListener('change', (e) => {
-      const alias = e.target.value;
-      setStatusMessage(\`Switching to \${alias}...\`);
-      vscode.postMessage({ command: 'switch-env', alias });
+      const val = e.target.value;
+      vscode.postMessage({ command: 'switch-env', env: val });
     });
 
     // Wallet switcher
@@ -558,6 +582,18 @@ export function getWebviewContent(params: {
     document.getElementById('refreshBtn')?.addEventListener('click', () => {
       setStatusMessage('Refreshing...');
       vscode.postMessage({ command: 'refresh' });
+    });
+
+    // Start Localnet button
+    document.getElementById('startLocalnetBtn')?.addEventListener('click', () => {
+      setStatusMessage('Starting local network...');
+      vscode.postMessage({ command: 'start-localnet' });
+    });
+
+    // Faucet button
+    document.getElementById('getFaucetBtn')?.addEventListener('click', () => {
+      setStatusMessage('Requesting faucet...');
+      vscode.postMessage({ command: 'get-faucet' });
     });
 
     // Listen for extension messages

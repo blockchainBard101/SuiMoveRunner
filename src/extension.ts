@@ -50,6 +50,14 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
   private suiBalance: string = '0';
   private _extensionUri: vscode.Uri;
 
+  // Add this property for default envs
+  private defaultEnvs = [
+    { alias: 'localnet', rpc: 'http://127.0.0.1:9000' },
+    { alias: 'testnet', rpc: 'https://fullnode.testnet.sui.io:443' },
+    { alias: 'devnet', rpc: 'https://fullnode.devnet.sui.io:443' },
+    { alias: 'mainnet', rpc: 'https://fullnode.mainnet.sui.io:443' },
+  ];
+
   constructor(extensionUri: vscode.Uri) {
     this._extensionUri = extensionUri;
   }
@@ -73,10 +81,19 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
       const envOutput = await runCommand(`sui client envs --json`);
       const [envsList, currentEnv] = JSON.parse(envOutput);
       this.activeEnv = currentEnv;
-      this.availableEnvs = envsList.map((e: any) => ({ alias: e.alias, rpc: e.rpc }));
+
+      // Merge defaultEnvs with user's envs, avoiding duplicates
+      const userEnvs = envsList.map((e: any) => ({ alias: e.alias, rpc: e.rpc }));
+      const merged = [...this.defaultEnvs];
+      for (const env of userEnvs) {
+        if (!merged.some(e => e.alias === env.alias)) {
+          merged.push(env);
+        }
+      }
+      this.availableEnvs = merged;
     } catch {
       this.activeEnv = 'None';
-      this.availableEnvs = [];
+      this.availableEnvs = [...this.defaultEnvs];
     }
   }
 
@@ -95,6 +112,25 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
     } catch {
     }
     return null;
+  }
+
+  async isLocalnetRunning(): Promise<boolean> {
+    try {
+      const res = await fetch('http://127.0.0.1:9000', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'sui_getLatestCheckpointSequenceNumber',
+          params: []
+        }),
+        timeout: 2000
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
   }
 
   resolveWebviewView(view: vscode.WebviewView) {
@@ -390,37 +426,48 @@ updated_at = "${new Date().toISOString()}"
         }
 
         case 'switch-env': {
-          const alias = message.alias;
+          const alias = message.env || message.alias; // support both keys for compatibility
           if (!alias) return;
 
           this.view?.webview.postMessage({ command: 'set-status', message: `Changing environment to ${alias}...` });
           vscode.window.showInformationMessage(`Changing environment to ${alias}...`);
 
-          (async () => {
-            try {
-              const exists = this.availableEnvs.some(e => e.alias === alias);
-              if (!exists) {
-                const rpc = await vscode.window.showInputBox({ prompt: `RPC for new env '${alias}'` });
-                if (!rpc) {
-                  this.view?.webview.postMessage({ command: 'set-status', message: '' });
-                  return;
-                }
-                await runCommand(`sui client new-env --alias ${alias} --rpc ${rpc}`);
+          try {
+            const exists = this.defaultEnvs.some(e => e.alias === alias);
+
+            if (alias === 'localnet') {
+              const running = await this.isLocalnetRunning();
+              if (!running) {
+                vscode.window.showInformationMessage('🟢 Starting Sui local network in new terminal...');
+                const terminal = vscode.window.createTerminal({ name: 'Sui Local Network' });
+                terminal.show(true);
+                terminal.sendText('RUST_LOG="off,sui_node=info" sui start --with-faucet --force-regenesis', true);
+                // Wait a few seconds for the node to start
+                await new Promise(res => setTimeout(res, 6000));
               }
-
-              await runCommand(`sui client switch --env ${alias}`);
-
-              await this.refreshEnvs();
-              await this.refreshWallets();
-
-              this.view?.webview.postMessage({ command: 'switch-env-done', alias });
-              vscode.window.showInformationMessage(`🔄 Switched to env: ${alias}`);
-              this.renderHtml(this.view!);
-            } catch (err) {
-              this.view?.webview.postMessage({ command: 'set-status', message: '' });
-              vscode.window.showErrorMessage(`❌ Failed to switch env: ${err}`);
             }
-          })();
+
+            if (!exists) {
+              const rpc = await vscode.window.showInputBox({ prompt: `RPC for new env '${alias}'` });
+              if (!rpc) {
+                this.view?.webview.postMessage({ command: 'set-status', message: '' });
+                return;
+              }
+              await runCommand(`sui client new-env --alias ${alias} --rpc ${rpc}`);
+            }
+
+            await runCommand(`sui client switch --env ${alias}`);
+
+            await this.refreshEnvs();
+            await this.refreshWallets();
+
+            this.view?.webview.postMessage({ command: 'switch-env-done', alias });
+            vscode.window.showInformationMessage(`🔄 Switched to env: ${alias}`);
+            this.renderHtml(this.view!);
+          } catch (err) {
+            this.view?.webview.postMessage({ command: 'set-status', message: '' });
+            vscode.window.showErrorMessage(`❌ Failed to switch env: ${err}`);
+          }
 
           break;
         }
@@ -494,6 +541,26 @@ updated_at = "${new Date().toISOString()}"
 
         case 'showCopyNotification': {
           vscode.window.showInformationMessage('📋 Wallet address copied to clipboard!');
+          break;
+        }
+
+        case 'start-localnet': {
+          const terminal = vscode.window.createTerminal({ name: 'Sui Local Network' });
+          terminal.show(true);
+          terminal.sendText('RUST_LOG="off,sui_node=info" sui start --with-faucet --force-regenesis', true);
+          vscode.window.showInformationMessage('🟢 Starting Sui local network in new terminal...');
+          break;
+        }
+
+        case 'get-faucet': {
+          try {
+            const output = await runCommand('sui client faucet');
+            vscode.window.showInformationMessage('💧 Faucet requested:\n' + output);
+            this.refreshWallets();
+            this.renderHtml(this.view!);
+          } catch (err) {
+            vscode.window.showErrorMessage('❌ Faucet failed: ' + err);
+          }
           break;
         }
       }
@@ -572,6 +639,7 @@ updated_at = "${new Date().toISOString()}"
       testnet: 'https://fullnode.testnet.sui.io:443',
       mainnet: 'https://fullnode.mainnet.sui.io:443',
       devnet: 'https://fullnode.devnet.sui.io:443',
+      localnet: 'http://127.0.0.1:9000'
     };
     const fullnodeUrl = fullnodeUrls[this.activeEnv] || fullnodeUrls['testnet'];
 
@@ -625,9 +693,11 @@ updated_at = "${new Date().toISOString()}"
     const iconUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._extensionUri, 'media', 'logo2.png')
     );
+    const localnetRunning = await this.isLocalnetRunning();
+    const showFaucet = ['devnet', 'localnet'].includes(this.activeEnv);
     view.webview.html = getWebviewContent({
       activeEnv: this.activeEnv,
-      availableEnvs: this.availableEnvs,
+      availableEnvs: this.defaultEnvs,
       wallets: this.wallets,
       activeWallet: this.activeWallet,
       suiBalance: this.suiBalance,
@@ -637,6 +707,8 @@ updated_at = "${new Date().toISOString()}"
       modulesHtml,
       argsMapping,
       iconUri: iconUri.toString(),
+      localnetRunning,
+      showFaucet,
     });
   }
 }
