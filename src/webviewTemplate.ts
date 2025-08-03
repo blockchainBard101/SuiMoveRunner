@@ -1,9 +1,16 @@
+export interface GasCoin {
+  gasCoinId: string;
+  mistBalance: number;
+  suiBalance: string;
+}
+
 export function getWebviewContent(params: {
   activeEnv: string;
   availableEnvs: { alias: string; rpc: string }[];
   wallets: { name: string; address: string }[];
   activeWallet: string;
   suiBalance: string;
+  gasCoins: GasCoin[];
   isMoveProject: boolean;
   pkg: string;
   upgradeCapInfo: { upgradeCap: string; packageId: string } | null;
@@ -19,6 +26,7 @@ export function getWebviewContent(params: {
     wallets,
     activeWallet,
     suiBalance,
+    gasCoins,
     isMoveProject,
     pkg,
     upgradeCapInfo,
@@ -40,6 +48,34 @@ export function getWebviewContent(params: {
 
   const shortWallet =
     activeWallet?.slice(0, 6) + "..." + activeWallet?.slice(-4) || "";
+
+  const gasCoinsHtml =
+    gasCoins.length > 0
+      ? `
+    <div class="gas-coins-section" id="gasCoinsSection">
+      <div class="gas-coins-header">
+        <span>Gas Coins (${gasCoins.length})</span>
+        <button class="gas-coins-toggle" onclick="toggleGasCoins()">▼ Show</button>
+      </div>
+      <div class="gas-coins-container" style="display: none;">
+        ${gasCoins
+          .map(
+            (coin) => `
+          <div class="gas-coin-item">
+            <span class="gas-coin-id" title="${
+              coin.gasCoinId
+            }" onclick="copyGasCoinId('${coin.gasCoinId}')">
+              ${coin.gasCoinId.slice(0, 8)}...${coin.gasCoinId.slice(-8)}
+            </span>
+            <span class="gas-coin-balance">${coin.suiBalance} SUI</span>
+          </div>
+        `
+          )
+          .join("")}
+      </div>
+    </div>
+  `
+      : "";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -310,6 +346,126 @@ export function getWebviewContent(params: {
         padding: 8px;
       }
     }
+
+    .input-error {
+      border-color: var(--vscode-inputValidation-errorBorder) !important;
+      background-color: var(--vscode-inputValidation-errorBackground);
+    }
+
+    .error-message {
+      color: var(--vscode-inputValidation-errorForeground);
+      font-size: 11px;
+      margin-top: 4px;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .btn-disabled {
+      background-color: var(--vscode-button-secondaryBackground);
+      color: var(--vscode-descriptionForeground);
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+  .btn-disabled:hover {
+    background-color: var(--vscode-button-secondaryBackground);
+  }
+
+  /* Gas coins styles */
+    .gas-coins-container {
+      margin-top: 8px;
+      max-height: 150px;
+      overflow-y: auto;
+      border: 1px solid var(--vscode-panel-border);
+      border-radius: 4px;
+      background-color: var(--vscode-editor-background);
+    }
+
+    .gas-coin-item {
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--vscode-panel-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      transition: background-color 0.2s ease;
+    }
+
+    .gas-coin-item:last-child {
+      border-bottom: none;
+    }
+
+    .gas-coin-item:hover {
+      background-color: var(--vscode-list-hoverBackground);
+    }
+
+    .gas-coin-id {
+      font-family: var(--vscode-editor-font-family, monospace);
+      color: var(--vscode-textPreformat-foreground);
+      cursor: pointer;
+      user-select: text;
+      flex: 1;
+      margin-right: 8px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .gas-coin-balance {
+      color: var(--vscode-terminal-ansiGreen);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .gas-coins-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+      font-size: 11px;
+      color: var(--vscode-descriptionForeground);
+    }
+
+    .gas-coins-toggle {
+      background: none;
+      border: none;
+      color: var(--vscode-button-foreground);
+      cursor: pointer;
+      font-size: 11px;
+      padding: 2px 4px;
+      border-radius: 2px;
+      transition: background-color 0.2s ease;
+    }
+
+    .gas-coins-toggle:hover {
+      background-color: var(--vscode-button-hoverBackground);
+    }
+
+    .collapsed .gas-coins-container {
+      display: none;
+    }
+
+    .auto-filled {
+    font-style: italic;
+    color: var(--vscode-descriptionForeground);
+  }
+  
+  .input-help {
+    font-size: 10px;
+    color: var(--vscode-descriptionForeground);
+    margin-top: 2px;
+    margin-bottom: 6px;
+  }
+  
+  .common-value {
+    background-color: var(--vscode-badge-background);
+    color: var(--vscode-badge-foreground);
+    padding: 1px 4px;
+    border-radius: 2px;
+    font-size: 10px;
+    margin-left: 4px;
+    cursor: pointer;
+  }
   </style>
 </head>
 <body>
@@ -362,30 +518,37 @@ export function getWebviewContent(params: {
     <select id="walletSwitcher">
       ${wallets
         .map(
-          (w) => `<option value="${w.address}" ${
-            w.address === activeWallet ? "selected" : ""
-          }>${w.name} - ${w.address.slice(0, 6)}...${w.address.slice(-4)}</option>`
+          (w) =>
+            `<option value="${w.address}" ${
+              w.address === activeWallet ? "selected" : ""
+            }>${w.name} - ${w.address.slice(0, 6)}...${w.address.slice(
+              -4
+            )}</option>`
         )
         .join("")}
     </select>
     <div class="wallet-row">
       <span>Address:</span>
-      <span id="walletAddress" class="wallet-address" title="Click to copy">${shortWallet}</span>
+      <span id="walletAddress" class="wallet-address" title="Click to copy">${
+        activeWallet?.slice(0, 6) + "..." + activeWallet?.slice(-4) || ""
+      }</span>
     </div>
     <div class="wallet-row">
-      <span>Balance:</span>
+      <span>Total Balance:</span>
       <span class="balance">${suiBalance} SUI</span>
     </div>
+    ${gasCoinsHtml}
     <button id="createAddressBtn" class="btn-secondary btn-small">➕ New Address</button>
   </div>
 
   ${
     !isMoveProject
       ? `<div class="section">
-      <div class="section-title">📦 Create Package</div>
-      <input id="packageName" placeholder="Package name" />
-      <button onclick="sendCreate()" class="btn-primary">Create</button>
-    </div>`
+    <div class="section-title">📦 Create Package</div>
+    <input id="packageName" placeholder="Package name (e.g., my_package)" />
+    <span id="packageNameError" class="error-message" style="display: none;"></span>
+    <button id="createPackageBtn" onclick="sendCreate()" class="btn-primary btn-disabled" disabled>Create</button>
+  </div>`
       : ""
   }
 
@@ -398,7 +561,9 @@ export function getWebviewContent(params: {
 
     <div class="section">
       <div class="section-title">🚀 Publish</div>
-      <button onclick="sendPublish()" class="btn-primary">${pkg ? "Re-publish" : "Publish"}</button>
+      <button onclick="sendPublish()" class="btn-primary">${
+        pkg ? "Re-publish" : "Publish"
+      }</button>
     </div>
 
     ${
@@ -440,20 +605,103 @@ export function getWebviewContent(params: {
     const vscode = acquireVsCodeApi();
     const argsMapping = ${JSON.stringify(argsMapping)};
 
+    // Gas coins functionality
+    function toggleGasCoins() {
+      const section = document.getElementById('gasCoinsSection');
+      const container = section.querySelector('.gas-coins-container');
+      const toggle = section.querySelector('.gas-coins-toggle');
+      
+      if (container.style.display === 'none') {
+        container.style.display = 'block';
+        toggle.textContent = '▲ Hide';
+        section.classList.remove('collapsed');
+      } else {
+        container.style.display = 'none';
+        toggle.textContent = '▼ Show';
+        section.classList.add('collapsed');
+      }
+    }
+
+    function copyGasCoinId(coinId) {
+      navigator.clipboard.writeText(coinId).then(() => {
+        setStatusMessage('Gas coin ID copied!');
+        setTimeout(() => setStatusMessage(''), 2000);
+      }).catch(() => {
+        setStatusMessage('Failed to copy gas coin ID');
+      });
+    }
+
+    function validatePackageName(name) {
+    const packageNameRegex = /^[a-zA-Z][a-zA-Z0-9_]*$/;
+    
+    if (!name) {
+      return { valid: false, message: '' };
+    }
+    
+    if (!packageNameRegex.test(name)) {
+      if (!/^[a-zA-Z]/.test(name)) {
+        return { valid: false, message: 'Package name must start with a letter' };
+      }
+      if (/[^a-zA-Z0-9_]/.test(name)) {
+        return { valid: false, message: 'Package name can only contain letters, numbers, and underscores' };
+      }
+      return { valid: false, message: 'Invalid package name format' };
+    }
+    
+    return { valid: true, message: '' };
+  }
+
+  function updatePackageValidation() {
+    const input = document.getElementById('packageName');
+    const errorSpan = document.getElementById('packageNameError');
+    const createBtn = document.getElementById('createPackageBtn');
+    
+    if (!input || !errorSpan || !createBtn) return;
+    
+    const name = input.value.trim();
+    const validation = validatePackageName(name);
+    
+    if (validation.valid && name) {
+      // Valid name
+      input.classList.remove('input-error');
+      errorSpan.style.display = 'none';
+      createBtn.disabled = false;
+      createBtn.classList.remove('btn-disabled');
+    } else {
+      // Invalid name
+      if (name) {
+        input.classList.add('input-error');
+        errorSpan.textContent = validation.message;
+        errorSpan.style.display = 'block';
+      } else {
+        input.classList.remove('input-error');
+        errorSpan.style.display = 'none';
+      }
+      createBtn.disabled = true;
+      createBtn.classList.add('btn-disabled');
+    }
+  }
+
+  document.getElementById('packageName')?.addEventListener('input', updatePackageValidation);
+  document.getElementById('packageName')?.addEventListener('blur', updatePackageValidation);
+
     function setStatusMessage(msg) {
       const statusEl = document.getElementById('statusMessage');
       statusEl.textContent = msg || 'Ready';
     }
 
     function sendCreate() {
-      const packageName = document.getElementById('packageName').value;
-      if (!packageName.trim()) {
-        setStatusMessage('Please enter package name');
-        return;
-      }
-      setStatusMessage('Creating package...');
-      vscode.postMessage({ command: 'create', packageName });
+    const packageName = document.getElementById('packageName').value.trim();
+    const validation = validatePackageName(packageName);
+    
+    if (!validation.valid || !packageName) {
+      setStatusMessage('Please enter a valid package name');
+      return;
     }
+    
+    setStatusMessage('Creating package...');
+    vscode.postMessage({ command: 'create', packageName });
+  }
 
     function sendBuild() {
       setStatusMessage('Building...');
@@ -476,73 +724,262 @@ export function getWebviewContent(params: {
       vscode.postMessage({ command: 'test', functionName: funcName });
     }
 
-    function sendCall() {
-      const pkg = document.getElementById('pkg').value;
-      const selected = document.getElementById('functionSelect').selectedOptions[0];
-      
-      if (!selected) {
-        setStatusMessage('Please select a function');
-        return;
+    function extractOptionType(type) {
+      const match = type.match(/Option<(.+)>/);
+      if (match) {
+        return cleanupTypeName(match[1]);
       }
-
-      const module = selected.getAttribute('data-mod');
-      const func = selected.value;
-      const key = module + '::' + func;
-      const { typeParams } = argsMapping[key] || { typeParams: [] };
-
-      const argElements = Array.from(document.querySelectorAll('#argsContainer input'));
-      const args = argElements.map(input => input.value);
-
-      const typeArgElements = Array.from(document.querySelectorAll('#typeArgsContainer input'));
-      const typeArgs = typeArgElements.map(input => input.value);
-
-      setStatusMessage('Executing...');
-      vscode.postMessage({ command: 'call', pkg, module, func, args, typeArgs });
+      return null;
     }
 
-    // Function selector change handler
-    document.getElementById('functionSelect')?.addEventListener('change', () => {
-      const selected = document.getElementById('functionSelect').selectedOptions[0];
-      const mod = selected?.getAttribute('data-mod');
-      const func = selected?.value;
-      const key = mod + '::' + func;
-      const { argTypes, typeParams } = argsMapping[key] || { argTypes: [], typeParams: [] };
-
-      const argsContainer = document.getElementById('argsContainer');
-      const typeArgsContainer = document.getElementById('typeArgsContainer');
+    function cleanupTypeName(type) {
+      if (!type) return 'value';
       
-      if (argsContainer) argsContainer.innerHTML = '';
-      if (typeArgsContainer) typeArgsContainer.innerHTML = '';
-
-      if (typeParams.length > 0) {
-        const typeArgsHeader = document.createElement('div');
-        typeArgsHeader.className = 'input-label';
-        typeArgsHeader.textContent = 'Type Arguments';
-        typeArgsContainer.appendChild(typeArgsHeader);
-
-        typeParams.forEach((tp, i) => {
-          const input = document.createElement('input');
-          input.placeholder = tp && tp.length > 0 ? tp : \`Type \${i + 1}\`;
-          typeArgsContainer.appendChild(input);
+      // For struct types, preserve the full path but shorten the address
+      if (type.includes('::')) {
+        // Replace long addresses with shortened form
+        const cleaned = type.replace(/0x[a-fA-F0-9]{40,}/g, (match) => {
+          return match.slice(0, 5) + '...' + match.slice(-3);
         });
+        return cleaned;
       }
+      
+      // For simple types, return as is
+      return type;
+    }
 
-      if (argTypes.length > 0) {
-        const argsHeader = document.createElement('div');
-        argsHeader.className = 'input-label';
-        argsHeader.textContent = 'Arguments';
-        argsContainer.appendChild(argsHeader);
+    function sendCall() {
+  const pkg = document.getElementById('pkg').value;
+  const selected = document.getElementById('functionSelect').selectedOptions[0];
+  
+  if (!selected) {
+    setStatusMessage('Please select a function');
+    return;
+  }
 
-        argTypes.forEach((type) => {
-          const input = document.createElement('input');
-          input.placeholder = type;
-          argsContainer.appendChild(input);
-        });
-      }
+  const module = selected.getAttribute('data-mod');
+  const func = selected.value;
+  const key = module + '::' + func;
+  const { typeParams } = argsMapping[key] || { typeParams: [] };
+
+  const argElements = Array.from(document.querySelectorAll('#argsContainer input'));
+  const args = argElements.map(input => {
+    let value = input.value.trim();
+    
+    // Handle special cases for empty values
+    if (!value && input.placeholder.includes('auto-provided')) {
+      return ''; // TxContext and similar are auto-provided
+    }
+    
+    // Handle vector inputs (comma-separated values)
+    if (input.placeholder.includes('comma-separated') && value) {
+      return value.split(',').map(v => v.trim()).join(' ');
+    }
+    
+    return value;
+  }).filter(arg => arg !== ''); // Remove empty arguments
+
+  const typeArgElements = Array.from(document.querySelectorAll('#typeArgsContainer input'));
+  const typeArgs = typeArgElements.map(input => input.value.trim()).filter(arg => arg !== '');
+
+  setStatusMessage('Executing...');
+  vscode.postMessage({ command: 'call', pkg, module, func, args, typeArgs });
+}
+
+  function getArgumentPlaceholderAndDefault(type, index) {
+    // Handle the common Clock type - make it readonly
+    if (type === '0x2::clock::Clock' || type.includes('clock::Clock')) {
+      return {
+        placeholder: 'Clock object (0x6 for shared clock)',
+        defaultValue: '0x6',
+        readonly: true,
+      };
+    }
+    
+    // Handle other common Sui system objects
+    if (type === '0x2::tx_context::TxContext' || type.includes('TxContext')) {
+      return {
+        placeholder: 'Transaction context (auto-provided)',
+        defaultValue: '',
+        readonly: true,
+      };
+    }
+    
+    // Handle coin types
+    if (type.includes('0x2::coin::Coin') || type.includes('coin::Coin')) {
+      const coinType = extractCoinType(type);
+      return {
+        placeholder: 'Coin object ID' + (coinType ? ' (' + cleanupTypeName(coinType) + ')' : ''),
+        defaultValue: ''
+      };
+    }
+    
+    // Handle treasury cap
+    if (type.includes('TreasuryCap')) {
+      return {
+        placeholder: 'Treasury capability object ID (' + cleanupTypeName(type) + ')',
+        defaultValue: ''
+      };
+    }
+    
+    // Handle upgrade cap
+    if (type.includes('UpgradeCap')) {
+      return {
+        placeholder: 'Upgrade capability object ID (' + cleanupTypeName(type) + ')',
+        defaultValue: ''
+      };
+    }
+    
+    // Handle vectors
+    if (type.startsWith('vector<') || type.includes('vector')) {
+      const innerType = extractVectorType(type);
+      return {
+        placeholder: 'Vector of ' + cleanupTypeName(innerType || 'items') + ' (comma-separated)',
+        defaultValue: ''
+      };
+    }
+    
+    // Handle option types
+    if (type.startsWith('0x1::option::Option') || type.includes('Option')) {
+      const innerType = extractOptionType(type);
+      return {
+        placeholder: 'Optional ' + cleanupTypeName(innerType || 'value') + ' (or leave empty for None)',
+        defaultValue: ''
+      };
+    }
+    
+    // Handle strings
+    if (type === '0x1::string::String' || type.includes('string::String') || type === 'vector<u8>') {
+      return {
+        placeholder: 'String value',
+        defaultValue: ''
+      };
+    }
+    
+    // Handle addresses
+    if (type === 'address') {
+      return {
+        placeholder: '0x... (wallet address)',
+        defaultValue: ''
+      };
+    }
+    
+    // Handle basic numeric types
+    if (['u8', 'u16', 'u32', 'u64', 'u128', 'u256'].includes(type)) {
+      return {
+        placeholder: 'Number (' + type + ')',
+        defaultValue: ''
+      };
+    }
+    
+    // Handle boolean
+    if (type === 'bool') {
+      return {
+        placeholder: 'true or false',
+        defaultValue: ''
+      };
+    }
+    
+    // Handle generic object references
+    if (type.includes('0x2::object::') || type.includes('object::')) {
+      return {
+        placeholder: 'Object ID (' + cleanupTypeName(type) + ')',
+        defaultValue: ''
+      };
+    }
+    
+    // For struct types (custom objects), show the full type path
+    if (type.includes('::')) {
+      const cleanType = cleanupTypeName(type);
+      return {
+        placeholder: 'Object ID (' + cleanType + ')',
+        defaultValue: ''
+      };
+    }
+    
+    // Clean up the type display for other complex types
+    const cleanType = cleanupTypeName(type);
+    
+    // Default case
+    return {
+      placeholder: cleanType + ' (argument ' + (index + 1) + ')',
+      defaultValue: ''
+    };
+  }
+
+  document.getElementById('functionSelect')?.addEventListener('change', () => {
+  const selected = document.getElementById('functionSelect').selectedOptions[0];
+  const mod = selected?.getAttribute('data-mod');
+  const func = selected?.value;
+  const key = mod + '::' + func;
+  const { argTypes, typeParams } = argsMapping[key] || { argTypes: [], typeParams: [] };
+
+  const argsContainer = document.getElementById('argsContainer');
+  const typeArgsContainer = document.getElementById('typeArgsContainer');
+  
+  if (argsContainer) argsContainer.innerHTML = '';
+  if (typeArgsContainer) typeArgsContainer.innerHTML = '';
+
+  if (typeParams.length > 0) {
+    const typeArgsHeader = document.createElement('div');
+    typeArgsHeader.className = 'input-label';
+    typeArgsHeader.textContent = 'Type Arguments';
+    typeArgsContainer.appendChild(typeArgsHeader);
+
+    typeParams.forEach((tp, i) => {
+      const input = document.createElement('input');
+      input.placeholder = tp && tp.length > 0 ? tp : 'Type ' + (i + 1);
+      typeArgsContainer.appendChild(input);
     });
+  }
+
+  if (argTypes.length > 0) {
+    const argsHeader = document.createElement('div');
+    argsHeader.className = 'input-label';
+    argsHeader.textContent = 'Arguments';
+    argsContainer.appendChild(argsHeader);
+
+    argTypes.forEach((type, index) => {
+      const input = document.createElement('input');
+      
+      // Enhanced placeholder and auto-fill logic
+      const { placeholder, defaultValue, readonly } = getArgumentPlaceholderAndDefault(type, index);
+      
+      input.placeholder = placeholder;
+      if (defaultValue) {
+        input.value = defaultValue;
+      }
+      
+      // Make input readonly if specified
+      if (readonly) {
+        input.readOnly = true;
+        input.style.backgroundColor = 'var(--vscode-input-background)';
+        input.style.color = 'var(--vscode-descriptionForeground)';
+        input.style.cursor = 'not-allowed';
+        input.title = 'This value is automatically provided';
+      }
+      
+      // Add helpful styling for auto-filled values
+      if (defaultValue && !readonly) {
+        input.style.fontStyle = 'italic';
+        input.style.color = 'var(--vscode-descriptionForeground)';
+        
+        // Reset styling when user starts typing
+        input.addEventListener('input', () => {
+          input.style.fontStyle = 'normal';
+          input.style.color = 'var(--vscode-dropdown-foreground)';
+        });
+      }
+      
+      argsContainer.appendChild(input);
+    });
+  }
+});
 
     // Initialize function selector
     window.addEventListener('load', () => {
+    updatePackageValidation();
+
       const functionSelect = document.getElementById('functionSelect');
       if (functionSelect) {
         functionSelect.dispatchEvent(new Event('change'));
@@ -598,22 +1035,27 @@ export function getWebviewContent(params: {
 
     // Listen for extension messages
     window.addEventListener('message', event => {
-      const message = event.data;
-      switch(message.command) {
-        case 'switch-env-done':
-          setStatusMessage(\`Switched to \${message.alias}\`);
-          break;
-        case 'switch-wallet-done':
-          const shortAddress = message.address.slice(0, 6) + '...' + message.address.slice(-4);
-          setStatusMessage(\`Switched to \${shortAddress}\`);
-          break;
-        case 'set-status':
-          setStatusMessage(message.message);
-          break;
-        default:
-          break;
-      }
-    });
+  const message = event.data;
+  switch(message.command) {
+    case 'switch-env-done':
+      setStatusMessage("Switched to" + message.alias);
+      break;
+    case 'switch-wallet-done':
+      const shortAddress = message.address.slice(0, 6) + '...' + message.address.slice(-4);
+      setStatusMessage("Switched to" + shortAddress);
+      break;
+    case 'set-status':
+      setStatusMessage(message.message);
+      break;
+    case 'gas-coin-copied':
+      setStatusMessage('📋 Gas coin ID copied to clipboard!');
+      // Auto-clear the message after 2 seconds
+      setTimeout(() => setStatusMessage(''), 2000);
+      break;
+    default:
+      break;
+  }
+});
   </script>
 </body>
 </html>`;
