@@ -19,6 +19,9 @@ export function getWebviewContent(params: {
   iconUri: string;
   localnetRunning?: boolean;
   showFaucet?: boolean;
+  suiVersion?: string;
+  latestSuiVersion?: string;
+  isSuiOutdated?: boolean;
 }): string {
   const {
     activeEnv,
@@ -35,6 +38,9 @@ export function getWebviewContent(params: {
     iconUri,
     localnetRunning = true,
     showFaucet = false,
+    suiVersion = "Unknown",
+    latestSuiVersion = "Unknown",
+    isSuiOutdated = false,
   } = params;
 
   const envOptions = availableEnvs
@@ -476,6 +482,22 @@ export function getWebviewContent(params: {
 
   <div class="status-bar">
     <div id="statusMessage">Ready</div>
+  </div>
+
+  <!-- Sui CLI Version Status -->
+  <div class="section" style="background-color: ${isSuiOutdated ? 'var(--vscode-inputValidation-errorBackground)' : 'var(--vscode-inputValidation-infoBackground)'}; border-color: ${isSuiOutdated ? 'var(--vscode-inputValidation-errorBorder)' : 'var(--vscode-inputValidation-infoBorder)'};">
+    <div>
+      <div class="section-title" style="color: ${isSuiOutdated ? 'var(--vscode-inputValidation-errorForeground)' : 'var(--vscode-inputValidation-infoForeground)'}; margin-bottom: 4px;">
+        ${isSuiOutdated ? '⚠️ Sui CLI Outdated' : '✅ Sui CLI Up to Date'}
+      </div>
+      <div style="font-size: 11px; color: ${isSuiOutdated ? 'var(--vscode-inputValidation-errorForeground)' : 'var(--vscode-inputValidation-infoForeground)'}; margin-bottom: 8px;">
+        Current: ${suiVersion} | Latest: ${latestSuiVersion}
+      </div>
+      ${isSuiOutdated ? 
+        '<button id="updateSuiBtn" class="btn-primary" style="background-color: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer;">Update Sui CLI</button>' :
+        '<div style="font-size: 11px; color: var(--vscode-inputValidation-infoForeground); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;"><span>✓</span> <span>All up to date!</span></div>'
+      }
+    </div>
   </div>
 
   <div class="section">
@@ -1017,7 +1039,7 @@ export function getWebviewContent(params: {
 
     // Refresh button
     document.getElementById('refreshBtn')?.addEventListener('click', () => {
-      setStatusMessage('Refreshing...');
+      setStatusMessage('Refreshing wallets, environments, and checking for updates...');
       vscode.postMessage({ command: 'refresh' });
     });
 
@@ -1032,6 +1054,13 @@ export function getWebviewContent(params: {
       setStatusMessage('Requesting faucet...');
       vscode.postMessage({ command: 'get-faucet' });
     });
+
+    // Update Sui CLI button
+    document.getElementById('updateSuiBtn')?.addEventListener('click', () => {
+      setStatusMessage('Updating Sui CLI...');
+      vscode.postMessage({ command: 'update-sui' });
+    });
+
 
     // Listen for extension messages
     window.addEventListener('message', event => {

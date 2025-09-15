@@ -1,93 +1,248 @@
 # Sui Move Runner
 
-**Supercharge your Sui Move development workflow with an all-in-one VS Code sidebar UI.**
+[![Version](https://img.shields.io/badge/version-0.1.3-blue.svg)](https://marketplace.visualstudio.com/items?itemName=blockchainBard.sui-move-runner)
+[![VS Code](https://img.shields.io/badge/VS%20Code-1.80.0+-blue.svg)](https://code.visualstudio.com/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
+**A comprehensive VS Code extension that streamlines Sui Move development with an intuitive sidebar interface, automated CLI management, and cross-platform compatibility.**
 
 ---
 
-## ✅ Features
+## 🚀 Features
 
-* ✅ Create new Sui Move packages with one click
-* 🔨 Build Move packages with live output
-* 🚀 Publish and upgrade packages seamlessly
-* 🧪 Run tests and view results inside VS Code
-* 🔁 Call public functions with flexible argument inputs
-* 🌐 Manage multiple Sui environments (Testnet, Devnet, Mainnet)
-* 👛 Switch between wallets and view balances
-* 🌓 Dark-themed, responsive UI for a smooth dev experience
+### 📦 Package Management
+- **One-Click Package Creation**: Create new Sui Move packages instantly
+- **Smart Build System**: Build packages with live output and error reporting
+- **Seamless Publishing**: Publish packages to any Sui network
+- **Package Upgrades**: Upgrade existing packages with version tracking
+
+### 🧪 Development Tools
+- **Integrated Testing**: Run Move tests directly in VS Code
+- **Function Calls**: Execute public functions with flexible argument inputs
+- **Live Output**: Real-time command execution and output display
+
+### 🌐 Network Management
+- **Multi-Environment Support**: Switch between Testnet, Devnet, Mainnet, and custom networks
+- **Environment Creation**: Automatically create new environments with RPC configuration
+- **Network Status**: Visual indicators for current network and connection status
+
+### 👛 Wallet Integration
+- **Wallet Management**: Create, import, and switch between Sui wallets
+- **Balance Tracking**: Real-time balance display for all wallet addresses
+- **Gas Management**: View and manage gas coins for transactions
+
+### 🔧 CLI Management
+- **Version Detection**: Automatic detection of Sui CLI version
+- **Update Notifications**: Smart notifications when Sui CLI updates are available
+- **Platform-Specific Updates**: Automated updates using the appropriate package manager:
+  - **macOS**: Homebrew (`brew upgrade sui`)
+  - **Windows**: Chocolatey (`choco upgrade sui`)
+  - **Linux**: Cargo (`cargo install sui`)
+
+### 🎨 User Experience
+- **Dark Theme Support**: Optimized for VS Code's dark theme
+- **Responsive Design**: Clean, intuitive interface that adapts to your workflow
+- **Cross-Platform**: Full compatibility with Windows, macOS, and Linux
+- **Error Handling**: Comprehensive error reporting and recovery
 
 ---
 
-## 🔧 Requirements
+## 📋 Prerequisites
 
-* **Sui client** and **Move toolchain** installed and available in your system PATH.
-* A VS Code workspace opened with a Sui Move package (`Move.toml`) to enable build/publish/upgrade/test functionality.
-* Network access to Sui fullnode RPC endpoints for fetching package module info.
+- **VS Code**: Version 1.80.0 or higher
+- **Sui CLI**: Installed and available in your system PATH
+- **Node.js**: Version 16 or higher (for development)
+- **Network Access**: Required for RPC endpoints and package operations
+
+### Sui CLI Installation
+
+The extension can help you update Sui CLI, but initial installation requires:
+
+**macOS (Homebrew):**
+```bash
+brew install sui
+```
+
+**Windows (Chocolatey):**
+```bash
+choco install sui
+```
+
+**Linux (Cargo):**
+```bash
+cargo install --locked --git https://github.com/MystenLabs/sui.git --branch testnet sui --features tracing
+```
 
 ---
 
 ## 📦 Installation
 
-You can install the extension in one of two ways:
+### From VS Code Marketplace
+1. Open VS Code
+2. Go to Extensions (Ctrl+Shift+X / Cmd+Shift+X)
+3. Search for "Sui Move Runner"
+4. Click Install
 
-1. **Marketplace**:
-   Search for `Sui Move Runner` in the VS Code Extensions Marketplace.
+### From VSIX File
+1. Download the latest `.vsix` file from releases
+2. Open VS Code
+3. Go to Extensions → More Actions → Install from VSIX
+4. Select the downloaded file
 
-2. **Manual Install**:
-   Download the `.vsix` file and run the following command:
-
-   ```bash
-   code --install-extension path/to/sui-move-runner.vsix
-   ```
-
----
-
-## ⚙️ Extension Settings
-
-This extension does not expose any custom settings at this time.
-
----
-
-## 🐞 Known Issues
-
-* RPC endpoints for fullnode are hardcoded for `testnet`, `devnet`, and `mainnet`. Custom environments require manual RPC input on first creation.
-* Some long-running commands may briefly freeze the UI until completion.
-* Upgrade capability tracking depends on output parsing and may break if the Sui client output format changes.
+### Manual Installation
+```bash
+code --install-extension sui-move-runner.vsix
+```
 
 ---
 
-## 🗒️ Release Notes
+## 🚀 Quick Start
 
-### 0.0.1
+1. **Open a Sui Move Project**: Open a folder containing a `Move.toml` file
+2. **Access the Sidebar**: Look for the "Sui Move Runner" icon in the Activity Bar
+3. **Set Up Environment**: The extension will guide you through environment setup
+4. **Start Building**: Use the sidebar to build, test, and publish your Move packages
 
-* Initial release of **Sui Move Runner**
-* Sidebar UI with commands for:
+---
 
-  * Package creation
-  * Build, publish, and upgrade
-  * Testing and function calls
-* Environment and wallet management
-* Wallet balance and network indicator display
+## 📖 Usage Guide
+
+### Environment Management
+- **Switch Environments**: Use the dropdown to select your target network
+- **Create Custom Environments**: Add new RPC endpoints for custom networks
+- **Environment Status**: Monitor connection status and network health
+
+### Package Development
+1. **Create Package**: Click "Create Move Package" to start a new project
+2. **Build Package**: Use "Build" to compile your Move code
+3. **Test Package**: Run "Test" to execute your test suite
+4. **Publish Package**: Deploy your package to the selected network
+
+### Wallet Operations
+- **Create Address**: Generate new Sui addresses
+- **View Balances**: Check SUI balances for all addresses
+- **Gas Management**: Monitor and manage gas coins
+
+### CLI Updates
+- **Automatic Detection**: The extension automatically detects your Sui CLI version
+- **Update Notifications**: Get notified when updates are available
+- **One-Click Updates**: Update Sui CLI directly from the extension
+
+---
+
+## ⚙️ Configuration
+
+### Extension Settings
+The extension works out of the box with default settings. No additional configuration is required.
+
+### Sui Client Configuration
+The extension automatically detects and uses your existing Sui client configuration. For custom environments, you can:
+
+1. Use the environment switcher to add new networks
+2. Provide custom RPC endpoints when prompted
+3. The extension will handle the rest automatically
+
+---
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**Extension Not Loading:**
+- Ensure VS Code version is 1.80.0 or higher
+- Check that Sui CLI is installed and in PATH
+- Restart VS Code after installation
+
+**Commands Not Working:**
+- Verify you're in a Sui Move project (contains `Move.toml`)
+- Check that Sui CLI is properly installed
+- Ensure network connectivity for RPC operations
+
+**Build/Test Failures:**
+- Check Move.toml configuration
+- Verify Sui CLI version compatibility
+- Review error messages in the output panel
+
+**Windows Compatibility:**
+- Ensure Chocolatey is installed for Sui CLI updates
+- Use Command Prompt or PowerShell for terminal operations
+- Check Windows Defender settings for command execution
+
+### Getting Help
+- Check the [Issues](https://github.com/blockchainBard/SuiMoveRunner/issues) page
+- Review the [Sui Documentation](https://docs.sui.io/)
+- Join the [Sui Discord](https://discord.gg/sui) community
+
+---
+
+## 🔄 Changelog
+
+### Version 0.1.3
+- **Enhanced CLI Management**: Added automatic Sui CLI version detection and update notifications
+- **Cross-Platform Support**: Full Windows, macOS, and Linux compatibility
+- **Improved Environment Handling**: Better environment creation and switching
+- **UI/UX Improvements**: Streamlined interface with better error handling
+- **Performance Optimizations**: Faster command execution and response times
+
+### Version 0.1.0
+- **Initial Release**: Core functionality for Sui Move development
+- **Sidebar Interface**: Comprehensive development tools
+- **Package Management**: Build, test, publish, and upgrade capabilities
+- **Wallet Integration**: Address management and balance tracking
 
 ---
 
 ## 🤝 Contributing
 
-Contributions and feedback are welcome!
-Feel free to open issues or submit pull requests.
+We welcome contributions! Here's how you can help:
+
+### Development Setup
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Open in VS Code
+4. Press F5 to run the extension in a new window
+
+### Contributing Guidelines
+- Fork the repository
+- Create a feature branch
+- Make your changes
+- Add tests if applicable
+- Submit a pull request
+
+### Reporting Issues
+- Use the GitHub Issues tracker
+- Provide detailed reproduction steps
+- Include system information and logs
 
 ---
 
-## 📚 Additional Resources
+## 📚 Resources
 
-* [Sui Blockchain Docs](https://docs.sui.io/)
-* [VS Code Extension API](https://code.visualstudio.com/api)
+- **[Sui Documentation](https://docs.sui.io/)**: Official Sui blockchain documentation
+- **[Move Language](https://move-language.github.io/move/)**: Move programming language reference
+- **[VS Code Extension API](https://code.visualstudio.com/api)**: VS Code extension development guide
+- **[Sui GitHub](https://github.com/MystenLabs/sui)**: Sui blockchain source code
 
 ---
 
 ## 📄 License
 
-MIT License © blockchainBard
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-🎉 **Enjoy building on Sui with ease!**
+## 🙏 Acknowledgments
+
+- **Sui Team**: For the amazing blockchain platform
+- **VS Code Team**: For the excellent extension API
+- **Community**: For feedback and contributions
+
+---
+
+<div align="center">
+
+**Made with ❤️ for the Sui ecosystem**
+
+[⭐ Star us on GitHub](https://github.com/blockchainBard/SuiMoveRunner) | [🐛 Report Issues](https://github.com/blockchainBard/SuiMoveRunner/issues) | [💬 Join Discord](https://discord.gg/sui)
+
+</div>

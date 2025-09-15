@@ -8,7 +8,13 @@ import { getWebviewContent, GasCoin } from "./webviewTemplate";
 
 function runCommand(command: string, cwd?: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    exec(command, { cwd }, (error, stdout, stderr) => {
+    // Use proper shell for Windows compatibility
+    const isWindows = process.platform === 'win32';
+    
+    exec(command, { 
+      cwd, 
+      shell: isWindows ? 'cmd.exe' : undefined
+    }, (error: any, stdout: any, stderr: any) => {
       if (error) {
         reject(stderr || error.message);
       } else {
@@ -34,11 +40,86 @@ function waitForFolder(folderPath: string, timeout: number): Promise<boolean> {
   });
 }
 
+async function getSuiVersion(): Promise<string | null> {
+  try {
+    const output = await runCommand('sui --version');
+    // Extract version from output like "sui 1.18.0-rc.0" or "sui 1.55.0-homebrew"
+    const match = output.match(/sui\s+([\d.]+(?:-[\w.]+)?)/);
+    return match ? match[1] : null;
+  } catch (error) {
+    console.error('Error getting Sui version:', error);
+    return null;
+  }
+}
+
+async function getLatestSuiVersion(): Promise<string | null> {
+  try {
+    const response = await fetch('https://api.github.com/repos/MystenLabs/sui/releases/latest');
+    const data = await response.json();
+    // Extract version from tag name like "mainnet-v1.18.0" or "testnet-v1.56.1"
+    const match = data.tag_name?.match(/(?:mainnet|testnet)-v([\d.]+)/);
+    return match ? match[1] : null;
+  } catch (error) {
+    console.error('Error getting latest version:', error);
+    return null;
+  }
+}
+
+function compareVersions(current: string, latest: string): boolean {
+  // Simple version comparison - returns true if current is outdated
+  // Strip any suffixes like "-homebrew", "-rc.0", etc.
+  const cleanCurrent = current.split('-')[0];
+  const cleanLatest = latest.split('-')[0];
+  
+  const currentParts = cleanCurrent.split('.').map(Number);
+  const latestParts = cleanLatest.split('.').map(Number);
+  
+  for (let i = 0; i < Math.max(currentParts.length, latestParts.length); i++) {
+    const currentPart = currentParts[i] || 0;
+    const latestPart = latestParts[i] || 0;
+    
+    if (currentPart < latestPart) {
+      return true;
+    }
+    if (currentPart > latestPart) {
+      return false;
+    }
+  }
+  
+  return false;
+}
+
 export function activate(context: vscode.ExtensionContext) {
-  const provider = new SuiRunnerSidebar(context.extensionUri);
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider("suiRunner.sidebarView", provider)
-  );
+  try {
+    const provider = new SuiRunnerSidebar(context.extensionUri);
+    context.subscriptions.push(
+      vscode.window.registerWebviewViewProvider("suiRunner.sidebarView", provider)
+    );
+    
+    // Register commands
+    context.subscriptions.push(
+      vscode.commands.registerCommand('suimoverunner.createMovePackage', () => {
+        vscode.window.showInformationMessage('Sui Move Package creation triggered from command palette');
+      })
+    );
+    
+    context.subscriptions.push(
+      vscode.commands.registerCommand('suimoverunner.publishMovePackage', () => {
+        vscode.window.showInformationMessage('Sui Move Package publish triggered from command palette');
+      })
+    );
+    
+    context.subscriptions.push(
+      vscode.commands.registerCommand('suimoverunner.callMoveFunction', () => {
+        vscode.window.showInformationMessage('Sui Move Function call triggered from command palette');
+      })
+    );
+    
+    console.log('SuiMoveRunner extension activated successfully');
+  } catch (error) {
+    console.error('Failed to activate SuiMoveRunner extension:', error);
+    vscode.window.showErrorMessage('Failed to activate SuiMoveRunner extension. Check the console for details.');
+  }
 }
 
 class SuiRunnerSidebar implements vscode.WebviewViewProvider {
@@ -50,6 +131,9 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
   private suiBalance: string = "0";
   private gasCoins: GasCoin[] = [];
   private _extensionUri: vscode.Uri;
+  private suiVersion: string = "";
+  private latestSuiVersion: string = "";
+  private isSuiOutdated: boolean = false;
 
   // Add this property for default envs
   private defaultEnvs = [
@@ -172,6 +256,27 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
     }
   }
 
+  async checkSuiVersion() {
+    try {
+      const currentVersion = await getSuiVersion();
+      const latestVersion = await getLatestSuiVersion();
+      
+      this.suiVersion = currentVersion || "Unknown";
+      this.latestSuiVersion = latestVersion || "Unknown";
+      
+      if (currentVersion && latestVersion) {
+        this.isSuiOutdated = compareVersions(currentVersion, latestVersion);
+      } else {
+        this.isSuiOutdated = false;
+      }
+    } catch (error) {
+      console.error("Failed to check Sui version:", error);
+      this.suiVersion = "Unknown";
+      this.latestSuiVersion = "Unknown";
+      this.isSuiOutdated = false;
+    }
+  }
+
   resolveWebviewView(view: vscode.WebviewView) {
     this.view = view;
     view.webview.options = { enableScripts: true };
@@ -233,7 +338,11 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             name: "Sui Move Build",
           });
           terminal.show(true);
-          terminal.sendText(`cd "${rootPath}" && sui move build`, true);
+          const isWindows = process.platform === 'win32';
+          const buildCmd = isWindows 
+            ? `cd /d "${rootPath}" && sui move build`
+            : `cd "${rootPath}" && sui move build`;
+          terminal.sendText(buildCmd, true);
 
           vscode.window.showInformationMessage(
             `🛠️ Running 'sui move build' in ${rootPath}...`
@@ -257,8 +366,10 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
           );
 
           try {
+            const isWindows = process.platform === 'win32';
             const publishProcess = exec(`sui client publish`, {
               cwd: rootPath,
+              shell: isWindows ? 'cmd.exe' : undefined,
             });
             let fullOutput = "";
 
@@ -449,9 +560,13 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
           );
 
           try {
+            const isWindows = process.platform === 'win32';
             const upgradeProcess = exec(
               `sui client upgrade --upgrade-capability ${upgradeCapInfo.upgradeCap}`,
-              { cwd: rootPath }
+              { 
+                cwd: rootPath,
+                shell: isWindows ? 'cmd.exe' : undefined,
+              }
             );
 
             let fullOutput = "";
@@ -575,7 +690,11 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
           if (funcName) {
             cmd += ` ${funcName}`;
           }
-          terminal.sendText(`cd "${rootPath}" && ${cmd}`, true);
+          const isWindows = process.platform === 'win32';
+          const testCmd = isWindows 
+            ? `cd /d "${rootPath}" && ${cmd}`
+            : `cd "${rootPath}" && ${cmd}`;
+          terminal.sendText(testCmd, true);
 
           vscode.window.showInformationMessage(
             `🧪 Running '${cmd}' in ${rootPath}...`
@@ -606,7 +725,11 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             name: "Sui Move Call",
           });
           terminal.show(true);
-          terminal.sendText(`cd "${rootPath}" && ${callCmd}`, true);
+          const isWindows = process.platform === 'win32';
+          const callCmdFinal = isWindows 
+            ? `cd /d "${rootPath}" && ${callCmd}`
+            : `cd "${rootPath}" && ${callCmd}`;
+          terminal.sendText(callCmdFinal, true);
 
           vscode.window.showInformationMessage(
             `🧠 Running '${callCmd}' in ${rootPath}...`
@@ -628,7 +751,19 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
           );
 
           try {
-            const exists = this.defaultEnvs.some((e) => e.alias === alias);
+            // Check if environment exists in default environments
+            const isDefaultEnv = this.defaultEnvs.some((e) => e.alias === alias);
+            
+            // Check if environment exists in user's Sui client
+            let envExists = false;
+            try {
+              const envOutput = await runCommand(`sui client envs --json`);
+              const [envsList] = JSON.parse(envOutput);
+              envExists = envsList.some((e: any) => e.alias === alias);
+            } catch {
+              // If we can't check, assume it doesn't exist
+              envExists = false;
+            }
 
             if (alias === "localnet") {
               const running = await this.isLocalnetRunning();
@@ -640,31 +775,50 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
                   name: "Sui Local Network",
                 });
                 terminal.show(true);
-                terminal.sendText(
-                  'RUST_LOG="off,sui_node=info" sui start --with-faucet --force-regenesis',
-                  true
-                );
+                const isWindows = process.platform === 'win32';
+                const localnetCmd = isWindows 
+                  ? 'set RUST_LOG=off,sui_node=info && sui start --with-faucet --force-regenesis'
+                  : 'RUST_LOG="off,sui_node=info" sui start --with-faucet --force-regenesis';
+                terminal.sendText(localnetCmd, true);
                 // Wait a few seconds for the node to start
                 await new Promise((res) => setTimeout(res, 6000));
               }
             }
 
-            if (!exists) {
-              const rpc = await vscode.window.showInputBox({
-                prompt: `RPC for new env '${alias}'`,
-              });
-              if (!rpc) {
-                this.view?.webview.postMessage({
-                  command: "set-status",
-                  message: "",
+            // If environment doesn't exist in Sui client, create it
+            if (!envExists) {
+              let rpc = "";
+              
+              if (isDefaultEnv) {
+                // Use the default RPC for predefined environments
+                const defaultEnv = this.defaultEnvs.find((e) => e.alias === alias);
+                rpc = defaultEnv?.rpc || "";
+              } else {
+                // Ask user for RPC for custom environments
+                const userRpc = await vscode.window.showInputBox({
+                  prompt: `RPC for new env '${alias}'`,
                 });
-                return;
+                if (!userRpc) {
+                  this.view?.webview.postMessage({
+                    command: "set-status",
+                    message: "",
+                  });
+                  return;
+                }
+                rpc = userRpc;
               }
-              await runCommand(
-                `sui client new-env --alias ${alias} --rpc ${rpc}`
-              );
+
+              if (rpc) {
+                await runCommand(
+                  `sui client new-env --alias ${alias} --rpc ${rpc}`
+                );
+                vscode.window.showInformationMessage(
+                  `✅ Created new environment: ${alias}`
+                );
+              }
             }
 
+            // Now switch to the environment
             await runCommand(`sui client switch --env ${alias}`);
 
             await this.refreshEnvs();
@@ -760,15 +914,16 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
 
           this.view.webview.postMessage({
             command: "set-status",
-            message: "Refreshing wallets and environments...",
+            message: "Refreshing wallets, environments, and checking for updates...",
           });
           vscode.window.showInformationMessage(
-            "Refreshing wallets and environments..."
+            "Refreshing wallets, environments, and checking for updates..."
           );
 
           try {
             await this.refreshWallets();
             await this.refreshEnvs();
+            await this.checkSuiVersion();
 
             this.view.webview.postMessage({
               command: "set-status",
@@ -808,10 +963,11 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             name: "Sui Local Network",
           });
           terminal.show(true);
-          terminal.sendText(
-            'RUST_LOG="off,sui_node=info" sui start --with-faucet --force-regenesis',
-            true
-          );
+          const isWindows = process.platform === 'win32';
+          const localnetCmd = isWindows 
+            ? 'set RUST_LOG=off,sui_node=info && sui start --with-faucet --force-regenesis'
+            : 'RUST_LOG="off,sui_node=info" sui start --with-faucet --force-regenesis';
+          terminal.sendText(localnetCmd, true);
           vscode.window.showInformationMessage(
             "🟢 Starting Sui local network in new terminal..."
           );
@@ -831,6 +987,41 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
           }
           break;
         }
+
+        case "update-sui": {
+          const isWindows = process.platform === 'win32';
+          const isMacOS = process.platform === 'darwin';
+          const terminal = vscode.window.createTerminal({
+            name: "Sui CLI Update",
+          });
+          terminal.show(true);
+          
+          let updateCmd = "";
+          if (isWindows) {
+            // Windows: Use Chocolatey
+            updateCmd = 'choco upgrade sui';
+          } else if (isMacOS) {
+            // macOS: Use Homebrew
+            updateCmd = 'brew upgrade sui';
+          } else {
+            // Linux: Use Cargo
+            updateCmd = 'cargo install --locked --git https://github.com/MystenLabs/sui.git --branch testnet sui --features tracing';
+          }
+          
+          terminal.sendText(updateCmd, true);
+          vscode.window.showInformationMessage(
+            "🔄 Updating Sui CLI... Check the terminal for progress."
+          );
+          
+          // Refresh version check after a delay
+          setTimeout(async () => {
+            await this.checkSuiVersion();
+            this.renderHtml(this.view!);
+          }, 15000);
+          
+          break;
+        }
+
       }
     });
   }
@@ -892,6 +1083,9 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     const rootPath = workspaceFolder?.uri.fsPath || "";
     const isMoveProject = fs.existsSync(path.join(rootPath, "Move.toml"));
+
+    // Check Sui version
+    await this.checkSuiVersion();
 
     let modulesHtml = "";
     let pkg = "";
@@ -1039,6 +1233,9 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
       iconUri: iconUri.toString(),
       localnetRunning,
       showFaucet,
+      suiVersion: this.suiVersion,
+      latestSuiVersion: this.latestSuiVersion,
+      isSuiOutdated: this.isSuiOutdated,
     });
   }
 }
