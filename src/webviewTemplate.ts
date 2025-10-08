@@ -435,7 +435,7 @@ export function getWebviewContent(params: {
     .gas-coins-toggle {
       background: none;
       border: none;
-      color: var(--vscode-button-foreground);
+      color: #ffd166; /* brighter for dark mode */
       cursor: pointer;
       font-size: 11px;
       padding: 2px 4px;
@@ -444,7 +444,7 @@ export function getWebviewContent(params: {
     }
 
     .gas-coins-toggle:hover {
-      background-color: var(--vscode-button-hoverBackground);
+      background-color: rgba(255, 209, 102, 0.12);
     }
 
     .collapsed .gas-coins-container {
@@ -555,12 +555,90 @@ export function getWebviewContent(params: {
         activeWallet?.slice(0, 6) + "..." + activeWallet?.slice(-4) || ""
       }</span>
     </div>
+    <button id="createAddressBtn" class="btn-secondary btn-small">➕ New Address</button>
     <div class="wallet-row">
       <span>Total Balance:</span>
       <span class="balance">${suiBalance} SUI</span>
     </div>
     ${gasCoinsHtml}
-    <button id="createAddressBtn" class="btn-secondary btn-small">➕ New Address</button>
+    ${
+      gasCoins.length > 0
+        ? `<div class="section" id="coinToolsSection">
+            <div class="gas-coins-header">
+              <span>🧰 Coin Tools</span>
+              <button class="gas-coins-toggle" onclick="toggleCoinTools()">▼ Show</button>
+            </div>
+            <div id="coinToolsContainer" style="display: none;">
+              ${
+                gasCoins.length > 1
+                  ? `<div style="margin-top:6px;">
+                      <div class="section-title" style="margin-bottom:6px;">🪙 Merge Coins</div>
+                      <div class="compact-row" style="margin-bottom:6px;">
+                        <select id="primaryCoinSelect" class="flex-1">
+                          ${gasCoins
+                            .map(
+                              (c) => `<option value="${c.gasCoinId}">${c.gasCoinId.slice(0,8)}...${c.gasCoinId.slice(-8)} (${c.suiBalance} SUI)</option>`
+                            )
+                            .join("")}
+                        </select>
+                      </div>
+                      <div class="compact-row" style="margin-bottom:6px;">
+                        <select id="coinToMergeSelect" class="flex-1">
+                          ${gasCoins
+                            .map(
+                              (c) => `<option value="${c.gasCoinId}">${c.gasCoinId.slice(0,8)}...${c.gasCoinId.slice(-8)} (${c.suiBalance} SUI)</option>`
+                            )
+                            .join("")}
+                        </select>
+                      </div>
+                      <button id="mergeCoinsBtn" class="btn-secondary btn-small btn-disabled" disabled>Merge into Primary</button>
+                      <div class="input-help">Select a primary coin to keep, and a coin to merge into it.</div>
+                    </div>`
+                  : ""
+              }
+              <div style="margin-top:8px;">
+                <div class="section-title" style="margin-bottom:6px;">✂️ Split Coin</div>
+                <div class="compact-row" style="margin-bottom:6px;">
+                  <select id="splitCoinSelect" class="flex-1">
+                    ${gasCoins
+                      .map(
+                        (c) => `<option value="${c.gasCoinId}">${c.gasCoinId.slice(0,8)}...${c.gasCoinId.slice(-8)} (${c.suiBalance} SUI)</option>`
+                      )
+                      .join("")}
+                  </select>
+                </div>
+                <div class="input-group">
+                  <label class="input-label">Amounts (comma-separated) or Count</label>
+                  <input id="splitAmounts" placeholder="e.g., 1000,2000,3000 (amount units per CLI)" inputmode="numeric" />
+                  <div class="input-help">Provide either specific amounts; if both provided, amounts are used.</div>
+                  <input id="splitCount" placeholder="Number of equal coins (count)" type="number" min="1" step="1" />
+                </div>
+                <button id="splitCoinBtn" class="btn-secondary btn-small btn-disabled" disabled>Split Coin</button>
+              </div>
+              <div style="margin-top:8px;">
+                <div class="section-title" style="margin-bottom:6px;">📤 Transfer SUI</div>
+                <div class="compact-row" style="margin-bottom:6px;">
+                  <select id="transferSuiCoinSelect" class="flex-1">
+                    ${gasCoins
+                      .map(
+                        (c) => `<option value="${c.gasCoinId}">${c.gasCoinId.slice(0,8)}...${c.gasCoinId.slice(-8)} (${c.suiBalance} SUI)</option>`
+                      )
+                      .join("")}
+                  </select>
+                </div>
+                <div class="input-group">
+                  <label class="input-label">Recipient Address</label>
+                  <input id="transferTo" placeholder="0x... or keystore alias" />
+                  <label class="input-label">Amount (optional)</label>
+                  <input id="transferAmount" placeholder="If omitted, whole coin transfers" type="number" min="0" step="1" />
+                </div>
+                <button id="transferSuiBtn" class="btn-secondary btn-small btn-disabled" disabled>Transfer SUI</button>
+              </div>
+            </div>
+          </div>`
+        : ""
+    }
+    
   </div>
 
   ${
@@ -644,6 +722,27 @@ export function getWebviewContent(params: {
       }
     }
 
+    function toggleCoinTools() {
+      const section = document.getElementById('coinToolsSection');
+      const container = document.getElementById('coinToolsContainer');
+      const toggle = section ? section.querySelector('.gas-coins-toggle') : null;
+      if (!container || !toggle) return;
+
+      if (container.style.display === 'none') {
+        container.style.display = 'block';
+        toggle.textContent = '▲ Hide';
+        section.classList.remove('collapsed');
+        // Re-validate forms on open
+        try { validateMergeForm(); } catch {}
+        try { validateSplitForm(); } catch {}
+        try { validateTransferForm(); } catch {}
+      } else {
+        container.style.display = 'none';
+        toggle.textContent = '▼ Show';
+        section.classList.add('collapsed');
+      }
+    }
+
     function copyGasCoinId(coinId) {
       navigator.clipboard.writeText(coinId).then(() => {
         setStatusMessage('Gas coin ID copied!');
@@ -651,6 +750,78 @@ export function getWebviewContent(params: {
       }).catch(() => {
         setStatusMessage('Failed to copy gas coin ID');
       });
+    }
+
+    function sendMergeCoin() {
+      const primary = (document.getElementById('primaryCoinSelect') || { value: '' }).value;
+      const toMerge = (document.getElementById('coinToMergeSelect') || { value: '' }).value;
+      if (!primary || !toMerge) {
+        setStatusMessage('Select both coins');
+        return;
+      }
+      if (primary === toMerge) {
+        setStatusMessage('Coins must be different');
+        return;
+      }
+      setStatusMessage('Merging coins...');
+      vscode.postMessage({ command: 'merge-coin', primaryCoin: primary, coinToMerge: toMerge });
+    }
+
+    function sendSplitCoin() {
+      const coinId = (document.getElementById('splitCoinSelect') || { value: '' }).value;
+      const amountsStr = (document.getElementById('splitAmounts') || { value: '' }).value.trim();
+      const countStr = (document.getElementById('splitCount') || { value: '' }).value.trim();
+      if (!coinId) {
+        setStatusMessage('Select a coin to split');
+        return;
+      }
+      const hasAmounts = amountsStr.length > 0;
+      const hasCount = countStr.length > 0;
+      if (!hasAmounts && !hasCount) {
+        setStatusMessage('Provide either amounts or count');
+        return;
+      }
+      let payload = { command: 'split-coin', coinId };
+      if (hasAmounts) {
+        const amounts = amountsStr.split(',').map(v => v.trim()).filter(v => v.length > 0);
+        if (amounts.length === 0) {
+          setStatusMessage('Enter at least one amount');
+          return;
+        }
+        payload = { ...payload, amounts };
+        if (hasCount) {
+          setStatusMessage('Using amounts; count will be ignored');
+        }
+      } else {
+        const count = parseInt(countStr, 10);
+        if (!Number.isFinite(count) || count <= 0) {
+          setStatusMessage('Count must be a positive integer');
+          return;
+        }
+        payload = { ...payload, count };
+      }
+      setStatusMessage('Splitting coin...');
+      vscode.postMessage(payload);
+    }
+
+    function sendTransferSui() {
+      const coinId = (document.getElementById('transferSuiCoinSelect') || { value: '' }).value;
+      const to = (document.getElementById('transferTo') || { value: '' }).value.trim();
+      const amountStr = (document.getElementById('transferAmount') || { value: '' }).value.trim();
+      if (!coinId) {
+        setStatusMessage('Select a SUI coin to transfer');
+        return;
+      }
+      if (!to) {
+        setStatusMessage('Enter a recipient');
+        return;
+      }
+      const payload = { command: 'transfer-sui', coinId, to };
+      if (amountStr) {
+        payload.amount = amountStr;
+      }
+      setStatusMessage('Transferring SUI...');
+      vscode.postMessage(payload);
     }
 
     function validatePackageName(name) {
@@ -712,6 +883,65 @@ export function getWebviewContent(params: {
       statusEl.textContent = msg || 'Ready';
     }
 
+    function setButtonEnabled(btn, enabled) {
+      if (!btn) return;
+      if (enabled) {
+        btn.disabled = false;
+        btn.classList.remove('btn-disabled');
+        btn.classList.remove('btn-secondary');
+        btn.classList.add('btn-primary');
+      } else {
+        btn.disabled = true;
+        btn.classList.add('btn-disabled');
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-secondary');
+      }
+    }
+
+    function validateMergeForm() {
+      const primary = (document.getElementById('primaryCoinSelect') || { value: '' }).value;
+      const toMerge = (document.getElementById('coinToMergeSelect') || { value: '' }).value;
+      const valid = Boolean(primary && toMerge && primary !== toMerge);
+      const btn = document.getElementById('mergeCoinsBtn');
+      setButtonEnabled(btn, valid);
+    }
+
+    function validateSplitForm() {
+      const coinId = (document.getElementById('splitCoinSelect') || { value: '' }).value;
+      const amountsStr = (document.getElementById('splitAmounts') || { value: '' }).value.trim();
+      const countStr = (document.getElementById('splitCount') || { value: '' }).value.trim();
+      const hasAmounts = amountsStr.length > 0;
+      const hasCount = countStr.length > 0;
+
+      let amountsValid = false;
+      if (hasAmounts) {
+        const parts = amountsStr.split(',').map(v => v.trim()).filter(Boolean);
+        amountsValid = parts.length > 0 && parts.every(v => Number.isFinite(Number(v)) && Number(v) >= 0 && /^\d+$/.test(v));
+      }
+
+      let countValid = false;
+      if (hasCount) {
+        const n = Number(countStr);
+        countValid = Number.isFinite(n) && Number.isInteger(n) && n >= 1;
+      }
+
+      const valid = Boolean(coinId) && (amountsValid || countValid);
+      const btn = document.getElementById('splitCoinBtn');
+      setButtonEnabled(btn, valid);
+    }
+
+    function validateTransferForm() {
+      const coinId = (document.getElementById('transferSuiCoinSelect') || { value: '' }).value;
+      const to = (document.getElementById('transferTo') || { value: '' }).value.trim();
+      const amountStr = (document.getElementById('transferAmount') || { value: '' }).value.trim();
+      let valid = Boolean(coinId && to);
+      if (amountStr) {
+        valid = valid && /^\d+$/.test(amountStr);
+      }
+      const btn = document.getElementById('transferSuiBtn');
+      setButtonEnabled(btn, valid);
+    }
+
     function sendCreate() {
     const packageName = document.getElementById('packageName').value.trim();
     const validation = validatePackageName(packageName);
@@ -768,6 +998,18 @@ export function getWebviewContent(params: {
       
       // For simple types, return as is
       return type;
+    }
+
+    // Extract inner type from Coin<T>
+    function extractCoinType(type) {
+      const match = String(type).match(/Coin<\s*(.+?)\s*>/);
+      return match ? match[1] : null;
+    }
+
+    // Extract inner type from vector<T>
+    function extractVectorType(type) {
+      const match = String(type).match(/vector<\s*(.+?)\s*>/);
+      return match ? match[1] : null;
     }
 
     function sendCall() {
@@ -1018,7 +1260,7 @@ export function getWebviewContent(params: {
     document.getElementById('walletSwitcher')?.addEventListener('change', (e) => {
       const address = e.target.value;
       const shortAddress = address.slice(0, 6) + '...' + address.slice(-4);
-      setStatusMessage(\`Switching wallet...\`);
+      setStatusMessage('Switching wallet...');
       vscode.postMessage({ command: 'switch-wallet', address });
     });
 
@@ -1059,6 +1301,49 @@ export function getWebviewContent(params: {
     document.getElementById('updateSuiBtn')?.addEventListener('click', () => {
       setStatusMessage('Updating Sui CLI...');
       vscode.postMessage({ command: 'update-sui' });
+    });
+
+    // Defer binding of dynamic buttons until DOM is ready
+    window.addEventListener('load', () => {
+      const mergeBtn = document.getElementById('mergeCoinsBtn');
+      if (mergeBtn) {
+        mergeBtn.addEventListener('click', () => {
+          sendMergeCoin();
+        });
+      }
+      const splitBtn = document.getElementById('splitCoinBtn');
+      if (splitBtn) {
+        splitBtn.addEventListener('click', () => {
+          sendSplitCoin();
+        });
+      }
+      const transferBtn = document.getElementById('transferSuiBtn');
+      if (transferBtn) {
+        transferBtn.addEventListener('click', () => {
+          sendTransferSui();
+        });
+      }
+
+      // Attach validation listeners
+      document.getElementById('primaryCoinSelect')?.addEventListener('change', validateMergeForm);
+      document.getElementById('coinToMergeSelect')?.addEventListener('change', validateMergeForm);
+
+      document.getElementById('splitCoinSelect')?.addEventListener('change', validateSplitForm);
+      document.getElementById('splitAmounts')?.addEventListener('input', validateSplitForm);
+      document.getElementById('splitAmounts')?.addEventListener('keyup', validateSplitForm);
+      document.getElementById('splitCount')?.addEventListener('input', validateSplitForm);
+      document.getElementById('splitCount')?.addEventListener('keyup', validateSplitForm);
+
+      document.getElementById('transferSuiCoinSelect')?.addEventListener('change', validateTransferForm);
+      document.getElementById('transferTo')?.addEventListener('input', validateTransferForm);
+      document.getElementById('transferTo')?.addEventListener('keyup', validateTransferForm);
+      document.getElementById('transferAmount')?.addEventListener('input', validateTransferForm);
+      document.getElementById('transferAmount')?.addEventListener('keyup', validateTransferForm);
+
+      // Initial validation
+      validateMergeForm();
+      validateSplitForm();
+      validateTransferForm();
     });
 
 
