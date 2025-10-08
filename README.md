@@ -1,6 +1,6 @@
 # Sui Move Runner
 
-[![Version](https://img.shields.io/badge/version-0.1.3-blue.svg)](https://marketplace.visualstudio.com/items?itemName=blockchainBard.sui-move-runner)
+[![Version](https://img.shields.io/badge/version-0.3.1-blue.svg)](https://marketplace.visualstudio.com/items?itemName=blockchainBard.sui-move-runner)
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.80.0+-blue.svg)](https://code.visualstudio.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
