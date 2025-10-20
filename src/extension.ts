@@ -6,6 +6,111 @@ import fetch from "node-fetch";
 import * as toml from "toml";
 import { getWebviewContent, GasCoin } from "./webviewTemplate";
 
+// RPC Helper functions for faster operations
+async function makeRpcCall(rpcUrl: string, method: string, params: any[] = []): Promise<any> {
+  try {
+    console.log(`Making RPC call: ${method} to ${rpcUrl}`);
+    
+    const response = await fetch(rpcUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method,
+        params,
+      }),
+      // Add timeout to prevent hanging
+      signal: AbortSignal.timeout(10000), // 10 second timeout
+    });
+    
+    if (!response.ok) {
+      throw new Error(`RPC call failed: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    if (data.error) {
+      throw new Error(`RPC error: ${data.error.message}`);
+    }
+    
+    console.log(`RPC call successful: ${method}`);
+    return data.result;
+  } catch (error) {
+    console.error(`RPC call failed for ${method} to ${rpcUrl}:`, error);
+    throw error;
+  }
+}
+
+async function getWalletBalanceRpc(rpcUrl: string, address: string): Promise<{ balance: string; gasCoins: GasCoin[] }> {
+  try {
+    console.log(`Fetching balance for address ${address} via RPC ${rpcUrl}`);
+    
+    let totalMistBalance = 0;
+    const gasCoins: GasCoin[] = [];
+    
+    // Try suix_getBalance first (more specific)
+    try {
+      const suiBalance = await makeRpcCall(rpcUrl, "suix_getBalance", [address, "0x2::sui::SUI"]);
+      console.log("SUI balance response:", suiBalance);
+      
+      if (suiBalance && suiBalance.totalBalance) {
+        totalMistBalance = parseInt(suiBalance.totalBalance.toString());
+      }
+    } catch (balanceError) {
+      console.log("suix_getBalance failed, trying suix_getAllBalances:", balanceError);
+      
+      // Fallback to suix_getAllBalances
+      const balances = await makeRpcCall(rpcUrl, "suix_getAllBalances", [address]);
+      console.log("All balances response:", balances);
+      
+      // Find SUI balance
+      const suiBalance = balances.find((b: any) => b.coinType === "0x2::sui::SUI");
+      if (suiBalance) {
+        totalMistBalance = parseInt(suiBalance.totalBalance || "0");
+      }
+    }
+    
+    // Get all coins for detailed gas coin information
+    const coins = await makeRpcCall(rpcUrl, "suix_getAllCoins", [address, null, 100]);
+    console.log("Coins response:", coins);
+    
+    if (coins.data) {
+      coins.data.forEach((coin: any) => {
+        if (coin.coinType === "0x2::sui::SUI" && coin.balance) {
+          const mistBalance = parseInt(coin.balance);
+          gasCoins.push({
+            gasCoinId: coin.coinObjectId,
+            mistBalance: mistBalance,
+            suiBalance: (mistBalance / 1e9).toFixed(6),
+          });
+        }
+      });
+    }
+    
+    console.log(`Total balance: ${totalMistBalance} MIST, Gas coins: ${gasCoins.length}`);
+    
+    return {
+      balance: (totalMistBalance / 1e9).toFixed(6),
+      gasCoins,
+    };
+  } catch (error) {
+    console.error("Failed to fetch wallet balance via RPC:", error);
+    throw error;
+  }
+}
+
+async function checkRpcHealth(rpcUrl: string): Promise<boolean> {
+  try {
+    console.log(`Checking RPC health for ${rpcUrl}`);
+    await makeRpcCall(rpcUrl, "sui_getLatestCheckpointSequenceNumber", []);
+    console.log(`RPC health check passed for ${rpcUrl}`);
+    return true;
+  } catch (error) {
+    console.log(`RPC health check failed for ${rpcUrl}:`, error);
+    return false;
+  }
+}
+
 function runCommand(command: string, cwd?: string): Promise<string> {
   return new Promise((resolve, reject) => {
     // Use proper shell for Windows compatibility
@@ -147,6 +252,27 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
     this._extensionUri = extensionUri;
   }
 
+  private safeJsonParse(output: string): any {
+    // Some CLI outputs include warnings before the JSON. Try to find the first JSON start.
+    const firstBrace = output.indexOf('{');
+    const firstBracket = output.indexOf('[');
+    let start = -1;
+    if (firstBrace !== -1 && firstBracket !== -1) {
+      start = Math.min(firstBrace, firstBracket);
+    } else {
+      start = Math.max(firstBrace, firstBracket);
+    }
+    const candidate = start > -1 ? output.slice(start) : output;
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      // As a fallback, try to strip lines that don't look like JSON
+      const lines = output.split('\n').filter(l => l.trim().startsWith('{') || l.trim().startsWith('[') || l.trim().startsWith(']') || l.trim().startsWith('}'));
+      const joined = lines.join('\n');
+      return JSON.parse(joined);
+    }
+  }
+
   private generateUpgradeToml(data: any): string {
     let tomlContent = "# Sui Move Package Upgrade Capabilities\n";
     tomlContent +=
@@ -178,7 +304,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
   async refreshWallets() {
     try {
       const addrOutput = await runCommand(`sui client addresses --json`);
-      const parsed = JSON.parse(addrOutput);
+      const parsed = this.safeJsonParse(addrOutput);
       this.activeWallet = parsed.activeAddress || "";
       this.wallets = parsed.addresses.map((arr: any[]) => ({
         name: arr[0],
@@ -195,7 +321,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
   async refreshEnvs() {
     try {
       const envOutput = await runCommand(`sui client envs --json`);
-      const [envsList, currentEnv] = JSON.parse(envOutput);
+      const [envsList, currentEnv] = this.safeJsonParse(envOutput);
       this.activeEnv = currentEnv;
 
       // Merge defaultEnvs with user's envs, avoiding duplicates
@@ -210,6 +336,17 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
         }
       }
       this.availableEnvs = merged;
+      
+      // Verify current environment is healthy via RPC
+      if (this.activeEnv && this.activeEnv !== "None") {
+        const currentRpc = this.availableEnvs.find(e => e.alias === this.activeEnv)?.rpc;
+        if (currentRpc) {
+          const isHealthy = await checkRpcHealth(currentRpc);
+          if (!isHealthy) {
+            console.warn(`Environment ${this.activeEnv} appears to be unhealthy`);
+          }
+        }
+      }
     } catch {
       this.activeEnv = "None";
       this.availableEnvs = [...this.defaultEnvs];
@@ -218,7 +355,9 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
 
   async renderUpgradeCapInfo(rootPath: string, pkg: string) {
     const upgradeTomlPath = path.join(rootPath, "upgrade.toml");
-    if (!fs.existsSync(upgradeTomlPath)) return null;
+    if (!fs.existsSync(upgradeTomlPath)) {
+      return null;
+    }
 
     try {
       const content = fs.readFileSync(upgradeTomlPath, "utf-8");
@@ -239,18 +378,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
 
   async isLocalnetRunning(): Promise<boolean> {
     try {
-      const res = await fetch("http://127.0.0.1:9000", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "sui_getLatestCheckpointSequenceNumber",
-          params: [],
-        }),
-        timeout: 2000,
-      });
-      return res.ok;
+      return await checkRpcHealth("http://127.0.0.1:9000");
     } catch {
       return false;
     }
@@ -286,7 +414,9 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
       switch (message.command) {
         case "create": {
           const name = message.packageName;
-          if (!name) return;
+          if (!name) {
+            return;
+          }
 
           const packageNameRegex = /^[a-zA-Z][a-zA-Z0-9_]*$/;
           if (!packageNameRegex.test(name)) {
@@ -305,7 +435,9 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
               canSelectMany: false,
               openLabel: "Select folder to create Move package in",
             });
-            if (!folderUris || folderUris.length === 0) return;
+            if (!folderUris || folderUris.length === 0) {
+              return;
+            }
             basePath = folderUris[0].fsPath;
           }
 
@@ -406,7 +538,9 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
                         break;
                       }
                     }
-                    if (upgradeCapId) break;
+                    if (upgradeCapId) {
+                      break;
+                    }
                   }
                 }
 
@@ -604,7 +738,9 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
                         break;
                       }
                     }
-                    if (newUpgradeCapId) break;
+                    if (newUpgradeCapId) {
+                      break;
+                    }
                   }
                 }
 
@@ -740,7 +876,9 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
 
         case "switch-env": {
           const alias = message.env || message.alias; // support both keys for compatibility
-          if (!alias) return;
+          if (!alias) {
+            return;
+          }
 
           this.view?.webview.postMessage({
             command: "set-status",
@@ -845,7 +983,9 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
 
         case "switch-wallet": {
           const address = message.address;
-          if (!address) return;
+          if (!address) {
+            return;
+          }
           const shortAddress = address.slice(0, 6) + "..." + address.slice(-4);
           this.view?.webview.postMessage({
             command: "set-status",
@@ -910,7 +1050,9 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
         }
 
         case "refresh": {
-          if (!this.view) break;
+          if (!this.view) {
+            break;
+          }
 
           this.view.webview.postMessage({
             command: "set-status",
@@ -976,12 +1118,26 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
 
         case "get-faucet": {
           try {
-            const output = await runCommand("sui client faucet");
+            // Only allow faucet on devnet or localnet
+            if (!['devnet', 'localnet'].includes(this.activeEnv)) {
+              vscode.window.showWarningMessage("Faucet is only available on devnet or localnet.");
+              break;
+            }
+
+            const address = this.activeWallet || '';
+            const cmd = address
+              ? `sui client faucet --address ${address}`
+              : 'sui client faucet';
+            const output = await runCommand(cmd);
             vscode.window.showInformationMessage(
               "💧 Faucet requested:\n" + output
             );
-            this.refreshWallets();
-            this.renderHtml(this.view!);
+            // Allow time for the faucet transaction to finalize, then refresh
+            setTimeout(async () => {
+              await this.refreshWallets();
+              this.renderHtml(this.view!);
+              this.view?.webview.postMessage({ command: "set-status", message: "" });
+            }, 4000);
           } catch (err) {
             vscode.window.showErrorMessage("❌ Faucet failed: " + err);
           }
@@ -1147,45 +1303,53 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
 
   async fetchWalletBalance() {
     try {
-      const gasOutput = await runCommand(`sui client gas --json`);
-      const gasCoinsData = JSON.parse(gasOutput);
-
-      let totalMistBalance = 0;
-      this.gasCoins = []; // Reset gas coins array
-
-      if (Array.isArray(gasCoinsData)) {
-        gasCoinsData.forEach((coin: any) => {
-          if (coin.mistBalance && coin.gasCoinId) {
-            const mistBalance = parseInt(coin.mistBalance.toString());
-            totalMistBalance += mistBalance;
-
-            this.gasCoins.push({
-              gasCoinId: coin.gasCoinId,
-              mistBalance: mistBalance,
-              suiBalance: coin.suiBalance || (mistBalance / 1e9).toFixed(6),
-            });
-          }
-        });
+      // Get current RPC URL for the active environment
+      const rpcUrl = this.availableEnvs.find(e => e.alias === this.activeEnv)?.rpc;
+      
+      console.log(`fetchWalletBalance: activeEnv=${this.activeEnv}, rpcUrl=${rpcUrl}, activeWallet=${this.activeWallet}`);
+      
+      if (!rpcUrl || !this.activeWallet) {
+        console.log("No RPC URL or active wallet, setting balance to 0");
+        this.suiBalance = "0";
+        this.gasCoins = [];
+        return;
       }
 
-      // Convert total from MIST to SUI
-      this.suiBalance = (totalMistBalance / 1e9).toFixed(6);
+      // Use RPC call for faster balance fetching
+      console.log("Attempting RPC balance fetch...");
+      const balanceData = await getWalletBalanceRpc(rpcUrl, this.activeWallet);
+      this.suiBalance = balanceData.balance;
+      this.gasCoins = balanceData.gasCoins;
+      console.log(`RPC balance fetch successful: ${this.suiBalance} SUI, ${this.gasCoins.length} gas coins`);
     } catch (error) {
-      console.log("Failed to fetch gas coins:", error);
-
-      // Fallback to balance command
+      console.log("Failed to fetch wallet balance via RPC, falling back to CLI:", error);
+      
+      // Fallback to CLI if RPC fails
       try {
-        const balanceOutput = await runCommand(`sui client balance --json`);
-        const balanceData = JSON.parse(balanceOutput);
-        const coinData = balanceData?.[0]?.[0]?.[1] || [];
+        const gasOutput = await runCommand(`sui client gas --json`);
+        const gasCoinsData = JSON.parse(gasOutput);
 
-        const suiBalanceObj = coinData.find(
-          (coin: any) => coin.coinType === "0x2::sui::SUI"
-        );
-        const rawBalance = BigInt(suiBalanceObj?.balance || "0");
-        this.suiBalance = (Number(rawBalance) / 1e9).toFixed(6);
-        this.gasCoins = []; // Clear gas coins if fallback is used
-      } catch {
+        let totalMistBalance = 0;
+        this.gasCoins = [];
+
+        if (Array.isArray(gasCoinsData)) {
+          gasCoinsData.forEach((coin: any) => {
+            if (coin.mistBalance && coin.gasCoinId) {
+              const mistBalance = parseInt(coin.mistBalance.toString());
+              totalMistBalance += mistBalance;
+
+              this.gasCoins.push({
+                gasCoinId: coin.gasCoinId,
+                mistBalance: mistBalance,
+                suiBalance: coin.suiBalance || (mistBalance / 1e9).toFixed(6),
+              });
+            }
+          });
+        }
+
+        this.suiBalance = (totalMistBalance / 1e9).toFixed(6);
+      } catch (cliError) {
+        console.log("CLI fallback also failed:", cliError);
         this.suiBalance = "0";
         this.gasCoins = [];
       }
@@ -1193,7 +1357,9 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
   }
 
   formatStruct(s: any): string {
-    if (!s.address || !s.module || !s.name) return "Unknown";
+    if (!s.address || !s.module || !s.name) {
+      return "Unknown";
+    }
     const shortAddr = s.address.slice(0, 5) + "..." + s.address.slice(-3);
     return `${shortAddr}::${s.module}::${s.name}`;
   }
@@ -1264,28 +1430,15 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
       upgradeCapInfo = null;
     }
 
-    const fullnodeUrls: Record<string, string> = {
-      testnet: "https://fullnode.testnet.sui.io:443",
-      mainnet: "https://fullnode.mainnet.sui.io:443",
-      devnet: "https://fullnode.devnet.sui.io:443",
-      localnet: "http://127.0.0.1:9000",
-    };
-    const fullnodeUrl = fullnodeUrls[this.activeEnv] || fullnodeUrls["testnet"];
+    // Get RPC URL for current environment
+    const rpcUrl = this.availableEnvs.find(e => e.alias === this.activeEnv)?.rpc || 
+                   this.defaultEnvs.find(e => e.alias === this.activeEnv)?.rpc ||
+                   "https://fullnode.testnet.sui.io:443";
 
     try {
       if (pkg) {
-        const response = await fetch(fullnodeUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            id: 1,
-            method: "sui_getNormalizedMoveModulesByPackage",
-            params: [pkg],
-          }),
-        });
-        const data = await response.json();
-        const modules = data.result || {};
+        // Use RPC helper function for consistent error handling
+        const modules = await makeRpcCall(rpcUrl, "sui_getNormalizedMoveModulesByPackage", [pkg]);
 
         modulesHtml = Object.entries(modules)
           .map(([modName, modData]: any) => {
@@ -1294,19 +1447,24 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
                 const argTypes = fdata.parameters
                   .map((t: any) => {
                     const getName = (obj: any): string | null => {
-                      if (typeof obj === "string") return obj;
-                      if (obj.Struct && obj.Struct.name !== "TxContext")
+                      if (typeof obj === "string") {
+                        return obj;
+                      }
+                      if (obj.Struct && obj.Struct.name !== "TxContext") {
                         return this.formatStruct(obj.Struct);
+                      }
                       if (
                         obj.Reference?.Struct &&
                         obj.Reference.Struct.name !== "TxContext"
-                      )
+                      ) {
                         return this.formatStruct(obj.Reference.Struct);
+                      }
                       if (
                         obj.MutableReference?.Struct &&
                         obj.MutableReference.Struct.name !== "TxContext"
-                      )
+                      ) {
                         return this.formatStruct(obj.MutableReference.Struct);
+                      }
                       return null;
                     };
                     return getName(t);
