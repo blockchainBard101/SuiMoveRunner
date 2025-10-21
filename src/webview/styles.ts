@@ -382,5 +382,200 @@ export const webviewStyles = `
     margin-left: 4px;
     cursor: pointer;
   }
+
+  /* Coin Portfolio Styles */
+  .coin-portfolio-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .coin-balance-item {
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 6px;
+    padding: 12px;
+    background-color: var(--vscode-editor-background);
+  }
+
+  .coin-balance-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .coin-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .coin-symbol {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--vscode-foreground);
+  }
+
+  .coin-name {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+  }
+
+  .coin-balance {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+  }
+
+  .balance-amount {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--vscode-foreground);
+  }
+
+  .balance-label {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+  }
+
+  .coin-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+
+  .coin-detail-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+  }
+
+  .coin-detail-row span:first-child {
+    color: var(--vscode-descriptionForeground);
+  }
+
+  .coin-detail-row span:last-child {
+    color: var(--vscode-foreground);
+    font-weight: 500;
+  }
+
+  .coin-type {
+    font-family: var(--vscode-editor-font-family);
+    font-size: 10px;
+    color: var(--vscode-button-foreground);
+    cursor: pointer;
+    text-decoration: underline;
+    word-break: break-all;
+  }
+
+  .coin-type:hover {
+    color: var(--vscode-button-hoverBackground);
+  }
+
+  .coin-objects-section {
+    border-top: 1px solid var(--vscode-panel-border);
+    padding-top: 8px;
+  }
+
+  .coin-objects-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+
+  .coin-objects-header span {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+    font-weight: 500;
+  }
+
+  .coin-objects-toggle {
+    background: none;
+    border: none;
+    color: var(--vscode-button-foreground);
+    cursor: pointer;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+
+  .coin-objects-toggle:hover {
+    background-color: var(--vscode-button-hoverBackground);
+  }
+
+  .coin-objects-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .coin-object-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 8px;
+    background-color: var(--vscode-input-background);
+    border-radius: 4px;
+    border: 1px solid var(--vscode-input-border);
+  }
+
+  .coin-object-id {
+    font-family: var(--vscode-editor-font-family);
+    font-size: 10px;
+    color: var(--vscode-foreground);
+    cursor: pointer;
+    flex: 1;
+  }
+
+  .coin-object-id:hover {
+    color: var(--vscode-button-foreground);
+    text-decoration: underline;
+  }
+
+  .coin-object-balance {
+    font-size: 10px;
+    color: var(--vscode-descriptionForeground);
+    margin: 0 8px;
+  }
+
+  /* Coin Portfolio Dropdown Styles */
+  .coin-portfolio-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-top: 1px solid var(--vscode-panel-border);
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--vscode-foreground);
+  }
+
+  .coin-portfolio-toggle {
+    background: none;
+    border: none;
+    color: var(--vscode-button-foreground);
+    cursor: pointer;
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+
+  .coin-portfolio-toggle:hover {
+    color: var(--vscode-button-hoverBackground);
+  }
+
+  #coinPortfolioContainer {
+    margin-top: 8px;
+  }
+
+  .no-coins-message {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+    text-align: center;
+    padding: 20px;
+  }
+
 `;
 

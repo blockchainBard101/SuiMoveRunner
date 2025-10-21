@@ -1,4 +1,4 @@
-import { GasCoin, WebviewParams } from './types';
+import { GasCoin, WebviewParams, CoinPortfolio, CoinBalance, CoinObject, CoinMetadata } from './types';
 
 export function generateHeader(iconUri: string): string {
   return `
@@ -234,7 +234,7 @@ function generateTransferSuiSection(gasCoins: GasCoin[]): string {
 }
 
 export function generateWalletSection(params: WebviewParams): string {
-  const { wallets, activeWallet, suiBalance, gasCoins } = params;
+  const { wallets, activeWallet, suiBalance, gasCoins, coinPortfolio } = params;
   const shortWallet = activeWallet?.slice(0, 6) + "..." + activeWallet?.slice(-4) || "";
   
   return `
@@ -254,9 +254,10 @@ export function generateWalletSection(params: WebviewParams): string {
       </select>
       <div class="wallet-row">
         <span>Address:</span>
-        <span id="walletAddress" class="wallet-address" title="Click to copy">${shortWallet}</span>
+        <span id="walletAddress" class="wallet-address" title="Click to copy" data-full-address="${activeWallet || ''}">${shortWallet}</span>
       </div>
       <button id="createAddressBtn" class="btn-secondary btn-small">➕ New Address</button>
+      <button id="exportWalletBtn" class="btn-secondary btn-small">📤 Export Wallet</button>
       <div class="wallet-row">
         <span>Total Balance:</span>
         <span class="balance">${suiBalance} SUI</span>
@@ -294,6 +295,24 @@ export function generateWalletSection(params: WebviewParams): string {
         </div>
         <button id="importWalletBtn" class="btn-secondary btn-small btn-disabled" disabled>Import Wallet</button>
       </div>
+
+      ${coinPortfolio && coinPortfolio.balances.length > 0 ? `
+        <div class="coin-portfolio-header">
+          <span>💰 Coin Portfolio (${coinPortfolio.balances.length} types)</span>
+          <button class="coin-portfolio-toggle" onclick="toggleCoinPortfolio()">▼ Show</button>
+        </div>
+        <div id="coinPortfolioContainer" style="display: none;">
+          ${generateCoinPortfolioContent(coinPortfolio)}
+        </div>
+      ` : `
+        <div class="coin-portfolio-header">
+          <span>💰 Coin Portfolio</span>
+          <button class="coin-portfolio-toggle" onclick="toggleCoinPortfolio()">▼ Show</button>
+        </div>
+        <div id="coinPortfolioContainer" style="display: none;">
+          <div class="no-coins-message">No coins found in this wallet</div>
+        </div>
+      `}
     </div>
   `;
 }
@@ -368,5 +387,177 @@ export function generateMoveProjectSections(params: WebviewParams): string {
       <button onclick="sendCall()" class="btn-primary">Execute</button>
     </div>
   `;
+}
+
+export function generateCoinPortfolioSection(coinPortfolio: CoinPortfolio | null): string {
+  if (!coinPortfolio || coinPortfolio.balances.length === 0) {
+    return `
+      <div class="section">
+        <div class="section-title">💰 Coin Portfolio</div>
+        <div style="font-size: 11px; color: var(--vscode-descriptionForeground); text-align: center; padding: 20px;">
+          No coins found. Try refreshing or check your wallet connection.
+        </div>
+      </div>
+    `;
+  }
+
+  const formatBalance = (balance: string, decimals: number): string => {
+    const num = parseFloat(balance);
+    if (num === 0) {
+      return "0";
+    }
+    return (num / Math.pow(10, decimals)).toFixed(6);
+  };
+
+  const formatCoinType = (coinType: string): string => {
+    if (coinType === "0x2::sui::SUI") {
+      return "SUI";
+    }
+    const parts = coinType.split("::");
+    if (parts.length >= 3) {
+      // Show shortened address + module + name
+      const address = parts[0];
+      const module = parts[1];
+      const name = parts[2];
+      const shortAddress = address.slice(0, 6) + "..." + address.slice(-4);
+      return `${shortAddress}::${module}::${name}`;
+    }
+    return coinType;
+  };
+
+  return `
+    <div class="section">
+      <div class="section-title">💰 Coin Portfolio (${coinPortfolio.balances.length} types)</div>
+      <div class="coin-portfolio-container">
+              ${coinPortfolio.balances.map((balance: CoinBalance) => {
+                const metadata = coinPortfolio.metadata[balance.coinType];
+                const coinObjects = coinPortfolio.coinObjects[balance.coinType] || [];
+                const decimals = metadata?.decimals || 9; // Default to 9 for SUI if no metadata
+                const displayBalance = formatBalance(balance.totalBalance, decimals);
+                const symbol = metadata?.symbol || formatCoinType(balance.coinType);
+          
+          return `
+            <div class="coin-balance-item">
+              <div class="coin-balance-header">
+                <div class="coin-info">
+                  <span class="coin-symbol">${symbol}</span>
+                  <span class="coin-name">${metadata?.name || formatCoinType(balance.coinType)}</span>
+                </div>
+                <div class="coin-balance">
+                  <span class="balance-amount">${displayBalance}</span>
+                  <span class="balance-label">${symbol}</span>
+                </div>
+              </div>
+              <div class="coin-details">
+                <div class="coin-detail-row">
+                  <span>Total Balance:</span>
+                  <span>${displayBalance} ${symbol} (${balance.coinObjectCount} objects)</span>
+                </div>
+                <div class="coin-detail-row">
+                  <span>Coin Type:</span>
+                  <span class="coin-type" title="${balance.coinType}" onclick="copyCoinType('${balance.coinType}')">${formatCoinType(balance.coinType)}</span>
+                </div>
+              </div>
+              ${coinObjects.length > 0 ? `
+                <div class="coin-objects-section">
+                  <div class="coin-objects-header">
+                    <span>Coin Objects (${coinObjects.length})</span>
+                    <button class="coin-objects-toggle" onclick="toggleCoinObjects('${balance.coinType}')">▼ Show</button>
+                  </div>
+                  <div class="coin-objects-container" id="coin-objects-${balance.coinType}" style="display: none;">
+                  ${coinObjects.map((coin: CoinObject) => `
+                    <div class="coin-object-item">
+                      <div class="coin-object-id" title="${coin.coinObjectId}" onclick="copyCoinObjectId('${coin.coinObjectId}')">
+                        ${coin.coinObjectId.slice(0, 8)}...${coin.coinObjectId.slice(-8)}
+                      </div>
+                      <div class="coin-object-balance">${formatBalance(coin.balance, decimals)} ${symbol}</div>
+                    </div>
+                  `).join("")}
+                  </div>
+                </div>
+              ` : ""}
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </div>
+  `;
+}
+
+export function generateCoinPortfolioContent(coinPortfolio: CoinPortfolio): string {
+  const formatBalance = (balance: string, decimals: number): string => {
+    const num = parseFloat(balance);
+    if (num === 0) {
+      return "0";
+    }
+    return (num / Math.pow(10, decimals)).toFixed(6);
+  };
+
+  const formatCoinType = (coinType: string): string => {
+    if (coinType === "0x2::sui::SUI") {
+      return "SUI";
+    }
+    const parts = coinType.split("::");
+    if (parts.length >= 3) {
+      // Show shortened address + module + name
+      const address = parts[0];
+      const module = parts[1];
+      const name = parts[2];
+      const shortAddress = address.slice(0, 6) + "..." + address.slice(-4);
+      return `${shortAddress}::${module}::${name}`;
+    }
+    return coinType;
+  };
+
+  return coinPortfolio.balances.map((balance: CoinBalance) => {
+    const metadata = coinPortfolio.metadata[balance.coinType];
+    const coinObjects = coinPortfolio.coinObjects[balance.coinType] || [];
+    const decimals = metadata?.decimals || 9; // Default to 9 for SUI if no metadata
+    const displayBalance = formatBalance(balance.totalBalance, decimals);
+    const symbol = metadata?.symbol || formatCoinType(balance.coinType);
+
+    return `
+      <div class="coin-balance-item">
+        <div class="coin-balance-header">
+          <div class="coin-info">
+            <span class="coin-symbol">${symbol}</span>
+            <span class="coin-name">${metadata?.name || formatCoinType(balance.coinType)}</span>
+          </div>
+          <div class="coin-balance">
+            <span class="balance-amount">${displayBalance}</span>
+            <span class="balance-label">${symbol}</span>
+          </div>
+        </div>
+        <div class="coin-details">
+          <div class="coin-detail-row">
+            <span>Total Balance:</span>
+            <span>${displayBalance} ${symbol} (${balance.coinObjectCount} objects)</span>
+          </div>
+          <div class="coin-detail-row">
+            <span>Coin Type:</span>
+            <span class="coin-type" title="${balance.coinType}" onclick="copyCoinType('${balance.coinType}')">${formatCoinType(balance.coinType)}</span>
+          </div>
+        </div>
+        ${coinObjects.length > 0 ? `
+          <div class="coin-objects-section">
+            <div class="coin-objects-header">
+              <span>Coin Objects (${coinObjects.length})</span>
+              <button class="coin-objects-toggle" onclick="toggleCoinObjects('${balance.coinType}')">▼ Show</button>
+            </div>
+            <div class="coin-objects-container" id="coin-objects-${balance.coinType}" style="display: none;">
+            ${coinObjects.map((coin: CoinObject) => `
+              <div class="coin-object-item">
+                <div class="coin-object-id" title="${coin.coinObjectId}" onclick="copyCoinObjectId('${coin.coinObjectId}')">
+                  ${coin.coinObjectId.slice(0, 8)}...${coin.coinObjectId.slice(-8)}
+                </div>
+                <div class="coin-object-balance">${formatBalance(coin.balance, decimals)} ${symbol}</div>
+              </div>
+            `).join("")}
+            </div>
+          </div>
+        ` : ""}
+      </div>
+    `;
+  }).join("");
 }
 

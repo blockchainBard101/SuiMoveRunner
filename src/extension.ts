@@ -5,6 +5,7 @@ import * as path from "path";
 import fetch from "node-fetch";
 import * as toml from "toml";
 import { getWebviewContent, GasCoin } from "./webviewTemplate";
+import { CoinPortfolio, CoinBalance, CoinObject, CoinMetadata } from "./webview/types";
 
 // RPC Helper functions for faster operations
 async function makeRpcCall(rpcUrl: string, method: string, params: any[] = []): Promise<any> {
@@ -108,6 +109,105 @@ async function checkRpcHealth(rpcUrl: string): Promise<boolean> {
   } catch (error) {
     console.log(`RPC health check failed for ${rpcUrl}:`, error);
     return false;
+  }
+}
+
+async function getCoinPortfolio(rpcUrl: string, address: string): Promise<CoinPortfolio> {
+  try {
+    console.log(`Fetching coin portfolio for address ${address} via RPC ${rpcUrl}`);
+    
+    // Get all balances
+    const balances = await makeRpcCall(rpcUrl, "suix_getAllBalances", [address]);
+    console.log("All balances response:", balances);
+    
+    // Get all coins with pagination
+    const coinObjects: Record<string, CoinObject[]> = {};
+    let cursor: string | null = null;
+    let hasNextPage = true;
+    
+    while (hasNextPage) {
+      const coinsResponse = await makeRpcCall(rpcUrl, "suix_getAllCoins", [address, cursor, 100]);
+      console.log("Coins response:", coinsResponse);
+      
+      if (coinsResponse.data) {
+        coinsResponse.data.forEach((coin: any) => {
+          const coinType = coin.coinType;
+          if (!coinObjects[coinType]) {
+            coinObjects[coinType] = [];
+          }
+          coinObjects[coinType].push({
+            coinType: coin.coinType,
+            coinObjectId: coin.coinObjectId,
+            version: coin.version,
+            digest: coin.digest,
+            balance: coin.balance,
+            previousTransaction: coin.previousTransaction,
+          });
+        });
+      }
+      
+      cursor = coinsResponse.nextCursor;
+      hasNextPage = coinsResponse.hasNextPage;
+    }
+    
+    // Get metadata for each coin type
+    const metadata: Record<string, CoinMetadata> = {};
+    const uniqueCoinTypes = [...new Set(Object.keys(coinObjects))];
+    
+    for (const coinType of uniqueCoinTypes) {
+      try {
+        console.log(`Fetching metadata for coin type: ${coinType}`);
+        const coinMetadata = await makeRpcCall(rpcUrl, "suix_getCoinMetadata", [coinType]);
+        console.log(`Metadata for ${coinType}:`, coinMetadata);
+        metadata[coinType] = {
+          decimals: coinMetadata.decimals,
+          name: coinMetadata.name,
+          symbol: coinMetadata.symbol,
+          description: coinMetadata.description,
+          iconUrl: coinMetadata.iconUrl,
+          id: coinMetadata.id,
+        };
+      } catch (error) {
+        console.log(`Failed to get metadata for ${coinType}:`, error);
+        // Provide default metadata with better defaults
+        const coinName = coinType.split('::').pop() || 'Unknown';
+        let defaultDecimals = 9; // Default for SUI
+        
+        // Special handling for common tokens
+        if (coinType.toLowerCase().includes('usdc')) {
+          defaultDecimals = 6;
+        } else if (coinType.toLowerCase().includes('usdt')) {
+          defaultDecimals = 6;
+        } else if (coinType.toLowerCase().includes('weth')) {
+          defaultDecimals = 18;
+        }
+        
+        metadata[coinType] = {
+          decimals: defaultDecimals,
+          name: coinName,
+          symbol: coinName,
+          description: 'No description available',
+          iconUrl: null,
+          id: null,
+        };
+      }
+    }
+    
+    console.log(`Coin portfolio fetched: ${balances.length} coin types, ${Object.keys(coinObjects).length} coin types with objects`);
+    
+    return {
+      balances: balances.map((balance: any) => ({
+        coinType: balance.coinType,
+        coinObjectCount: balance.coinObjectCount,
+        totalBalance: balance.totalBalance,
+        lockedBalance: balance.lockedBalance || "0",
+      })),
+      coinObjects,
+      metadata,
+    };
+  } catch (error) {
+    console.error("Failed to fetch coin portfolio via RPC:", error);
+    throw error;
   }
 }
 
@@ -235,6 +335,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
   private wallets: { name: string; address: string }[] = [];
   private suiBalance: string = "0";
   private gasCoins: GasCoin[] = [];
+  private coinPortfolio: CoinPortfolio | null = null;
   private _extensionUri: vscode.Uri;
   private suiVersion: string = "";
   private latestSuiVersion: string = "";
@@ -299,6 +400,27 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
     }
 
     return tomlContent;
+  }
+
+  async getKeyIdentityForAddress(address: string): Promise<string | null> {
+    try {
+      // Get all addresses to find the key identity
+      const output = await runCommand('sui client addresses --json');
+      const parsed = this.safeJsonParse(output);
+      
+      // The addresses format is an array of arrays: [alias, address]
+      // The key identity is the alias (first element)
+      if (parsed.addresses && Array.isArray(parsed.addresses)) {
+        const wallet = parsed.addresses.find((addr: any[]) => addr[1] === address);
+        return wallet?.[0] || null; // keyIdentity is the alias at index 0
+      }
+      
+      console.error('Unexpected addresses response format:', parsed);
+      return null;
+    } catch (error) {
+      console.error('Error getting key identity:', error);
+      return null;
+    }
   }
 
   async refreshWallets() {
@@ -1049,6 +1171,131 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
           break;
         }
 
+        case "export-wallet": {
+          try {
+            if (this.wallets.length === 0) {
+              vscode.window.showErrorMessage("❌ No wallets available to export.");
+              break;
+            }
+
+            // Create wallet selection options
+            const walletOptions = this.wallets.map(wallet => ({
+              label: `${wallet.name} - ${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}`,
+              description: wallet.address,
+              address: wallet.address
+            }));
+
+            // Show wallet selection dropdown
+            const selectedWallet = await vscode.window.showQuickPick(walletOptions, {
+              placeHolder: "Select wallet to export",
+              title: "Export Wallet"
+            });
+
+            if (!selectedWallet) {
+              vscode.window.showInformationMessage("Wallet export cancelled.");
+              break;
+            }
+
+            const walletAddress = selectedWallet.address;
+
+            // Show security warning before export
+            const warningAction = await vscode.window.showWarningMessage(
+              `⚠️ Security Warning: Exporting Private Key\n\n` +
+              `You are about to export the private key for wallet:\n` +
+              `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}\n\n` +
+              `⚠️ IMPORTANT SECURITY NOTICE:\n` +
+              `• This private key gives FULL ACCESS to your wallet\n` +
+              `• Anyone with this key can steal ALL your funds\n` +
+              `• Never share this key with anyone\n` +
+              `• Store it securely and offline\n` +
+              `• Consider using a hardware wallet for better security\n\n` +
+              `Are you sure you want to continue?`,
+              { modal: true },
+              "Yes, I understand the risks",
+              "Cancel"
+            );
+
+            if (warningAction !== "Yes, I understand the risks") {
+              vscode.window.showInformationMessage("Wallet export cancelled for security.");
+              break;
+            }
+
+            // Get the key identity for the selected wallet
+            const keyIdentity = await this.getKeyIdentityForAddress(walletAddress);
+            if (!keyIdentity) {
+              vscode.window.showErrorMessage("❌ Could not find key identity for selected wallet.");
+              break;
+            }
+
+            // Export the private key with JSON output
+            const output = await runCommand(`sui keytool export --key-identity ${keyIdentity} --json`);
+            const exportData = JSON.parse(output);
+            const privateKey = exportData.exportedPrivateKey;
+            const keyInfo = exportData.key;
+
+            // Show the private key in a dialog
+            const action = await vscode.window.showInformationMessage(
+              `✅ Private key exported for wallet ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`,
+              "Copy to Clipboard",
+              "Show Details"
+            );
+
+            if (action === "Copy to Clipboard") {
+              await vscode.env.clipboard.writeText(privateKey);
+              vscode.window.showInformationMessage("🔐 Private key copied to clipboard!");
+            } else if (action === "Show Details") {
+              const panel = vscode.window.createWebviewPanel(
+                'walletExport',
+                'Wallet Export Details',
+                vscode.ViewColumn.One,
+                { enableScripts: true }
+              );
+              panel.webview.html = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                  <style>
+                    body { font-family: var(--vscode-font-family); padding: 20px; }
+                    .warning { background: var(--vscode-inputValidation-warningBackground); 
+                              color: var(--vscode-inputValidation-warningForeground); 
+                              padding: 10px; border-radius: 4px; margin: 10px 0; }
+                    .private-key { background: var(--vscode-textCodeBlock-background); 
+                                  padding: 10px; border-radius: 4px; 
+                                  font-family: var(--vscode-editor-font-family); 
+                                  word-break: break-all; margin: 10px 0; }
+                    button { background: var(--vscode-button-background); 
+                            color: var(--vscode-button-foreground); 
+                            border: none; padding: 8px 16px; 
+                            border-radius: 4px; cursor: pointer; margin: 5px; }
+                  </style>
+                </head>
+                <body>
+                  <h2>🔐 Wallet Export Details</h2>
+                  <div class="warning">
+                    ⚠️ <strong>Security Warning:</strong> Keep this private key secure and never share it. 
+                    Anyone with this key can access your wallet and funds.
+                  </div>
+                  <p><strong>Alias:</strong> ${keyInfo.alias}</p>
+                  <p><strong>Wallet Address:</strong> ${keyInfo.suiAddress}</p>
+                  <p><strong>Key Identity:</strong> ${keyIdentity}</p>
+                  <p><strong>Key Scheme:</strong> ${keyInfo.keyScheme}</p>
+                  <p><strong>Public Key:</strong> ${keyInfo.publicBase64Key}</p>
+                  <p><strong>Private Key:</strong></p>
+                  <div class="private-key">${privateKey}</div>
+                  <button onclick="navigator.clipboard.writeText('${privateKey}')">Copy Private Key</button>
+                  <button onclick="window.close()">Close</button>
+                </body>
+                </html>
+              `;
+            }
+          } catch (err) {
+            vscode.window.showErrorMessage(
+              `❌ Failed to export wallet: ${err}`
+            );
+          }
+          break;
+        }
+
         case "refresh": {
           if (!this.view) {
             break;
@@ -1066,6 +1313,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             await this.refreshWallets();
             await this.refreshEnvs();
             await this.checkSuiVersion();
+            await this.fetchCoinPortfolio();
 
             this.view.webview.postMessage({
               command: "set-status",
@@ -1297,6 +1545,19 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
           break;
         }
 
+        case "view-coin-portfolio": {
+          try {
+            await this.fetchCoinPortfolio();
+            this.renderHtml(this.view!);
+            vscode.window.showInformationMessage(
+              "💰 Coin portfolio updated!"
+            );
+          } catch (err) {
+            vscode.window.showErrorMessage(`❌ Failed to fetch coin portfolio: ${err}`);
+          }
+          break;
+        }
+
       }
     });
   }
@@ -1356,6 +1617,29 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
     }
   }
 
+  async fetchCoinPortfolio() {
+    try {
+      // Get current RPC URL for the active environment
+      const rpcUrl = this.availableEnvs.find(e => e.alias === this.activeEnv)?.rpc;
+      
+      console.log(`fetchCoinPortfolio: activeEnv=${this.activeEnv}, rpcUrl=${rpcUrl}, activeWallet=${this.activeWallet}`);
+      
+      if (!rpcUrl || !this.activeWallet) {
+        console.log("No RPC URL or active wallet, setting portfolio to null");
+        this.coinPortfolio = null;
+        return;
+      }
+
+      // Use RPC call for coin portfolio fetching
+      console.log("Attempting RPC coin portfolio fetch...");
+      this.coinPortfolio = await getCoinPortfolio(rpcUrl, this.activeWallet);
+      console.log(`RPC coin portfolio fetch successful: ${this.coinPortfolio.balances.length} coin types`);
+    } catch (error) {
+      console.log("Failed to fetch coin portfolio via RPC:", error);
+      this.coinPortfolio = null;
+    }
+  }
+
   formatStruct(s: any): string {
     if (!s.address || !s.module || !s.name) {
       return "Unknown";
@@ -1393,6 +1677,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
     }
 
     await this.refreshWallets();
+    await this.fetchCoinPortfolio();
 
     try {
       const lockFile = fs.readFileSync(
@@ -1513,6 +1798,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
       suiVersion: this.suiVersion,
       latestSuiVersion: this.latestSuiVersion,
       isSuiOutdated: this.isSuiOutdated,
+      coinPortfolio: this.coinPortfolio,
     });
   }
 }

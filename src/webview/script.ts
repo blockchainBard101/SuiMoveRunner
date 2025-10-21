@@ -647,7 +647,7 @@ export const webviewScript = `
 
   // Wallet address copy
   document.getElementById('walletAddress')?.addEventListener('click', () => {
-    const walletAddress = '\${activeWallet}';
+    const walletAddress = document.getElementById('walletAddress')?.getAttribute('data-full-address') || '';
     navigator.clipboard.writeText(walletAddress).then(() => {
       setStatusMessage('Address copied!');
       vscode.postMessage({ command: 'showCopyNotification' });
@@ -658,6 +658,12 @@ export const webviewScript = `
   document.getElementById('createAddressBtn')?.addEventListener('click', () => {
     setStatusMessage('Creating address...');
     vscode.postMessage({ command: 'create-address' });
+  });
+
+  // Export wallet button
+  document.getElementById('exportWalletBtn')?.addEventListener('click', () => {
+    setStatusMessage('Exporting wallet...');
+    vscode.postMessage({ command: 'export-wallet' });
   });
 
   // Refresh button
@@ -769,5 +775,49 @@ export const webviewScript = `
         break;
     }
   });
+
+  // Coin Portfolio Functions
+  function toggleCoinObjects(coinType) {
+    const container = document.getElementById('coin-objects-' + coinType);
+    const toggle = container.previousElementSibling.querySelector('.coin-objects-toggle');
+    
+    if (container.style.display === 'none') {
+      container.style.display = 'block';
+      toggle.textContent = '▲ Hide';
+    } else {
+      container.style.display = 'none';
+      toggle.textContent = '▼ Show';
+    }
+  }
+
+  function copyCoinObjectId(coinObjectId) {
+    navigator.clipboard.writeText(coinObjectId).then(() => {
+      setStatusMessage('Coin object ID copied!');
+      setTimeout(() => setStatusMessage(''), 2000);
+    }).catch(() => {
+      setStatusMessage('Failed to copy coin object ID');
+    });
+  }
+
+  function copyCoinType(coinType) {
+    navigator.clipboard.writeText(coinType).then(() => {
+      setStatusMessage('Coin type copied!');
+      setTimeout(() => setStatusMessage(''), 2000);
+    }).catch(() => {
+      setStatusMessage('Failed to copy coin type');
+    });
+  }
+
+  function toggleCoinPortfolio() {
+    const container = document.getElementById('coinPortfolioContainer');
+    const toggle = document.querySelector('.coin-portfolio-toggle');
+    if (container.style.display === 'none') {
+      container.style.display = 'block';
+      toggle.textContent = '▲ Hide';
+    } else {
+      container.style.display = 'none';
+      toggle.textContent = '▼ Show';
+    }
+  }
 `;
 
