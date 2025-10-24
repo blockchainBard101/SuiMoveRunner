@@ -22,21 +22,18 @@ export const webviewScript = `
   }
 
   function toggleImportWallet() {
-    const section = document.getElementById('importWalletSection');
     const container = document.getElementById('importWalletContainer');
-    const toggle = section ? section.querySelector('.gas-coins-toggle') : null;
+    const toggle = document.querySelector('.import-wallet-toggle');
     if (!container || !toggle) return;
 
     if (container.style.display === 'none') {
       container.style.display = 'block';
       toggle.textContent = '▲ Hide';
-      section.classList.remove('collapsed');
       // Re-validate on open to enable/disable button properly
       try { validateImportForm(); } catch {}
     } else {
       container.style.display = 'none';
       toggle.textContent = '▼ Show';
-      section.classList.add('collapsed');
     }
   }
 
