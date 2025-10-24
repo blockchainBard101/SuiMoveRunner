@@ -12,6 +12,7 @@ import {
   generateEnvironmentSection,
   generateWalletSection,
   generateImportWalletSection,
+  generateMoveProjectSelectionSection,
   generateCreatePackageSection,
   generateMoveProjectSections,
   generateCoinPortfolioSection,
@@ -64,6 +65,7 @@ export function getWebviewContent(params: WebviewParams): string {
   ${generateEnvironmentSection(availableEnvs, activeEnv)}
   ${generateWalletSection(params)}
   ${generateImportWalletSection()}
+  ${generateMoveProjectSelectionSection(params)}
   ${generateCreatePackageSection(isMoveProject)}
   ${generateMoveProjectSections(params)}
 

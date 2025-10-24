@@ -24,6 +24,12 @@ export interface ArgsMapping {
   typeParams: string[];
 }
 
+export interface MoveProject {
+  path: string;
+  name: string;
+  relativePath: string;
+}
+
 export interface WebviewParams {
   activeEnv: string;
   availableEnvs: Environment[];
@@ -43,6 +49,8 @@ export interface WebviewParams {
   latestSuiVersion?: string;
   isSuiOutdated?: boolean;
   coinPortfolio?: CoinPortfolio | null;
+  foundMoveProjects?: MoveProject[];
+  activeMoveProjectRoot?: string;
 }
 
 export interface ArgumentPlaceholder {

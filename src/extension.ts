@@ -5,7 +5,7 @@ import * as path from "path";
 import fetch from "node-fetch";
 import * as toml from "toml";
 import { getWebviewContent, GasCoin } from "./webviewTemplate";
-import { CoinPortfolio, CoinBalance, CoinObject, CoinMetadata } from "./webview/types";
+import { CoinPortfolio, CoinBalance, CoinObject, CoinMetadata, MoveProject } from "./webview/types";
 
 // RPC Helper functions for faster operations
 async function makeRpcCall(rpcUrl: string, method: string, params: any[] = []): Promise<any> {
@@ -294,6 +294,50 @@ function compareVersions(current: string, latest: string): boolean {
   return false;
 }
 
+// Move project detection functions
+function isMoveProject(directoryPath: string): boolean {
+  const moveTomlPath = path.join(directoryPath, "Move.toml");
+  return fs.existsSync(moveTomlPath);
+}
+
+async function scanForMoveProjects(rootPath: string, maxDepth: number = 3): Promise<MoveProject[]> {
+  const moveProjects: MoveProject[] = [];
+  
+  async function scanDirectory(currentPath: string, currentDepth: number, relativePath: string = ""): Promise<void> {
+    if (currentDepth > maxDepth) {
+      return;
+    }
+    
+    try {
+      const entries = await fs.promises.readdir(currentPath, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const fullPath = path.join(currentPath, entry.name);
+          const newRelativePath = relativePath ? path.join(relativePath, entry.name) : entry.name;
+          
+          // Check if this directory is a Move project
+          if (isMoveProject(fullPath)) {
+            moveProjects.push({
+              path: fullPath,
+              name: entry.name,
+              relativePath: newRelativePath
+            });
+          } else {
+            // Recursively scan subdirectories
+            await scanDirectory(fullPath, currentDepth + 1, newRelativePath);
+          }
+        }
+      }
+    } catch (error) {
+      console.log(`Error scanning directory ${currentPath}:`, error);
+    }
+  }
+  
+  await scanDirectory(rootPath, 0);
+  return moveProjects;
+}
+
 export function activate(context: vscode.ExtensionContext) {
   try {
     const provider = new SuiRunnerSidebar(context.extensionUri);
@@ -340,6 +384,8 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
   private suiVersion: string = "";
   private latestSuiVersion: string = "";
   private isSuiOutdated: boolean = false;
+  private foundMoveProjects: MoveProject[] = [];
+  private activeMoveProjectRoot: string = "";
 
   // Add this property for default envs
   private defaultEnvs = [
@@ -527,9 +573,29 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
     }
   }
 
-  resolveWebviewView(view: vscode.WebviewView) {
+  async scanForMoveProjects() {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      this.foundMoveProjects = [];
+      return;
+    }
+
+    const rootPath = workspaceFolder.uri.fsPath;
+    this.foundMoveProjects = await scanForMoveProjects(rootPath);
+    
+    // Set active project root to the first found project if none is set
+    if (this.foundMoveProjects.length > 0 && !this.activeMoveProjectRoot) {
+      this.activeMoveProjectRoot = this.foundMoveProjects[0].path;
+    }
+  }
+
+  async resolveWebviewView(view: vscode.WebviewView) {
     this.view = view;
     view.webview.options = { enableScripts: true };
+    
+    // Scan for Move projects on activation
+    await this.scanForMoveProjects();
+    
     this.renderHtml(view);
 
     view.webview.onDidReceiveMessage(async (message) => {
@@ -586,7 +652,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             vscode.window.showErrorMessage("No workspace open");
             return;
           }
-          const rootPath = workspaceFolder.uri.fsPath;
+          const rootPath = this.activeMoveProjectRoot || workspaceFolder.uri.fsPath;
 
           const terminal = vscode.window.createTerminal({
             name: "Sui Move Build",
@@ -611,7 +677,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             vscode.window.showErrorMessage("No workspace open");
             return;
           }
-          const rootPath = workspaceFolder.uri.fsPath;
+          const rootPath = this.activeMoveProjectRoot || workspaceFolder.uri.fsPath;
           const outputChannel =
             vscode.window.createOutputChannel("Sui Move Publish");
           outputChannel.show(true);
@@ -771,7 +837,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             vscode.window.showErrorMessage("No workspace open");
             return;
           }
-          const rootPath = workspaceFolder.uri.fsPath;
+          const rootPath = this.activeMoveProjectRoot || workspaceFolder.uri.fsPath;
           const upgradeTomlPath = path.join(rootPath, "upgrade.toml");
 
           if (!fs.existsSync(upgradeTomlPath)) {
@@ -936,7 +1002,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             vscode.window.showErrorMessage("No workspace open");
             return;
           }
-          const rootPath = workspaceFolder.uri.fsPath;
+          const rootPath = this.activeMoveProjectRoot || workspaceFolder.uri.fsPath;
           const funcName = message.functionName?.trim() || "";
 
           const terminal = vscode.window.createTerminal({
@@ -968,7 +1034,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             vscode.window.showErrorMessage("No workspace open");
             return;
           }
-          const rootPath = workspaceFolder.uri.fsPath;
+          const rootPath = this.activeMoveProjectRoot || workspaceFolder.uri.fsPath;
 
           let callCmd = `sui client call --package ${pkg} --module ${module} --function ${func}`;
 
@@ -1558,6 +1624,62 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
           break;
         }
 
+        case "scan-move-projects": {
+          try {
+            this.view?.webview.postMessage({
+              command: "set-status",
+              message: "Scanning for Move projects...",
+            });
+            
+            await this.scanForMoveProjects();
+            
+            this.view?.webview.postMessage({
+              command: "set-status",
+              message: "",
+            });
+            
+            this.renderHtml(this.view!);
+            
+            if (this.foundMoveProjects.length === 0) {
+              vscode.window.showInformationMessage(
+                "No Move projects found in the current workspace."
+              );
+            } else {
+              vscode.window.showInformationMessage(
+                `Found ${this.foundMoveProjects.length} Move project(s). Check the sidebar to select one.`
+              );
+            }
+          } catch (err) {
+            this.view?.webview.postMessage({
+              command: "set-status",
+              message: "",
+            });
+            vscode.window.showErrorMessage(`❌ Failed to scan for Move projects: ${err}`);
+          }
+          break;
+        }
+
+        case "select-move-project": {
+          const projectPath = message.projectPath;
+          if (!projectPath) {
+            vscode.window.showErrorMessage("No project path provided");
+            return;
+          }
+
+          try {
+            this.activeMoveProjectRoot = projectPath;
+            this.renderHtml(this.view!);
+            
+            const projectName = this.foundMoveProjects.find(p => p.path === projectPath)?.name || "Unknown";
+            vscode.window.showInformationMessage(
+              `✅ Selected Move project: ${projectName}`
+            );
+          } catch (err) {
+            vscode.window.showErrorMessage(`❌ Failed to select Move project: ${err}`);
+          }
+          break;
+        }
+
       }
     });
   }
@@ -1651,7 +1773,10 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
   async renderHtml(view: vscode.WebviewView) {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     const rootPath = workspaceFolder?.uri.fsPath || "";
-    const isMoveProject = fs.existsSync(path.join(rootPath, "Move.toml"));
+    
+    // Use active Move project root if set, otherwise check current workspace root
+    const activeProjectRoot = this.activeMoveProjectRoot || rootPath;
+    const isMoveProject = fs.existsSync(path.join(activeProjectRoot, "Move.toml"));
 
     // Check Sui version
     await this.checkSuiVersion();
@@ -1681,7 +1806,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
 
     try {
       const lockFile = fs.readFileSync(
-        path.join(rootPath, "Move.lock"),
+        path.join(activeProjectRoot, "Move.lock"),
         "utf-8"
       );
       const lockData = toml.parse(lockFile);
@@ -1699,7 +1824,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
 
     let upgradeCapInfo: { upgradeCap: string; packageId: string } | null = null;
     try {
-      const upgradeTomlPath = path.join(rootPath, "upgrade.toml");
+      const upgradeTomlPath = path.join(activeProjectRoot, "upgrade.toml");
       if (fs.existsSync(upgradeTomlPath)) {
         const content = fs.readFileSync(upgradeTomlPath, "utf-8");
         const parsed = toml.parse(content);
@@ -1799,6 +1924,8 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
       latestSuiVersion: this.latestSuiVersion,
       isSuiOutdated: this.isSuiOutdated,
       coinPortfolio: this.coinPortfolio,
+      foundMoveProjects: this.foundMoveProjects,
+      activeMoveProjectRoot: this.activeMoveProjectRoot,
     });
   }
 }

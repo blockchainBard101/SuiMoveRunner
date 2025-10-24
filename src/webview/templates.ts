@@ -341,6 +341,71 @@ export function generateImportWalletSection(): string {
   return "";
 }
 
+export function generateMoveProjectSelectionSection(params: WebviewParams): string {
+  const { foundMoveProjects = [], activeMoveProjectRoot, isMoveProject } = params;
+  
+  // If no Move projects found and current directory is not a Move project, show scan option
+  if (foundMoveProjects.length === 0 && !isMoveProject) {
+    return `
+      <div class="section">
+        <div class="section-title">🔍 Move Project Detection</div>
+        <div style="font-size: 11px; color: var(--vscode-descriptionForeground); margin-bottom: 8px;">
+          No Move project detected in the current workspace root.
+        </div>
+        <button id="scanMoveProjectsBtn" class="btn-primary">🔍 Scan for Move Projects</button>
+        <div style="font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 6px;">
+          This will scan subdirectories for Move projects (Move.toml files).
+        </div>
+      </div>
+    `;
+  }
+  
+  // If Move projects found, show selection UI
+  if (foundMoveProjects.length > 0) {
+    const projectOptions = foundMoveProjects.map(project => 
+      `<option value="${project.path}" ${project.path === activeMoveProjectRoot ? 'selected' : ''}>
+        ${project.name} (${project.relativePath})
+      </option>`
+    ).join('');
+    
+    return `
+      <div class="section">
+        <div class="section-title">📁 Move Project Selection</div>
+        <div style="font-size: 11px; color: var(--vscode-descriptionForeground); margin-bottom: 8px;">
+          Found ${foundMoveProjects.length} Move project(s). Select which one to use for build/test/publish operations.
+        </div>
+        <select id="moveProjectSelect" style="width: 100%; margin-bottom: 8px;">
+          ${projectOptions}
+        </select>
+        <div style="display: flex; gap: 8px;">
+          <button id="selectMoveProjectBtn" class="btn-primary">✅ Select Project</button>
+          <button id="rescanMoveProjectsBtn" class="btn-secondary">🔄 Rescan</button>
+        </div>
+        ${activeMoveProjectRoot ? `
+          <div style="font-size: 11px; color: var(--vscode-inputValidation-infoForeground); margin-top: 6px;">
+            ✓ Active: ${foundMoveProjects.find(p => p.path === activeMoveProjectRoot)?.name || 'Unknown'}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+  
+  // If current directory is a Move project, show confirmation
+  if (isMoveProject) {
+    return `
+      <div class="section">
+        <div class="section-title">✅ Move Project Detected</div>
+        <div style="font-size: 11px; color: var(--vscode-inputValidation-infoForeground); margin-bottom: 8px;">
+          Current workspace root contains a Move project. All operations will use this directory.
+        </div>
+        <button id="rescanMoveProjectsBtn" class="btn-secondary">🔄 Scan for Other Projects</button>
+      </div>
+    `;
+  }
+  
+  return "";
+}
+
 export function generateCreatePackageSection(isMoveProject: boolean): string {
   if (isMoveProject) {
     return "";

@@ -715,6 +715,34 @@ export const webviewScript = `
       });
     }
 
+    // Move project selection functionality
+    const scanMoveProjectsBtn = document.getElementById('scanMoveProjectsBtn');
+    if (scanMoveProjectsBtn) {
+      scanMoveProjectsBtn.addEventListener('click', () => {
+        vscode.postMessage({ command: 'scan-move-projects' });
+      });
+    }
+
+    const rescanMoveProjectsBtn = document.getElementById('rescanMoveProjectsBtn');
+    if (rescanMoveProjectsBtn) {
+      rescanMoveProjectsBtn.addEventListener('click', () => {
+        vscode.postMessage({ command: 'scan-move-projects' });
+      });
+    }
+
+    const selectMoveProjectBtn = document.getElementById('selectMoveProjectBtn');
+    if (selectMoveProjectBtn) {
+      selectMoveProjectBtn.addEventListener('click', () => {
+        const select = document.getElementById('moveProjectSelect');
+        if (select && select.value) {
+          vscode.postMessage({ 
+            command: 'select-move-project', 
+            projectPath: select.value 
+          });
+        }
+      });
+    }
+
     // Attach validation listeners
     document.getElementById('primaryCoinSelect')?.addEventListener('change', validateMergeForm);
     document.getElementById('coinToMergeSelect')?.addEventListener('change', validateMergeForm);
