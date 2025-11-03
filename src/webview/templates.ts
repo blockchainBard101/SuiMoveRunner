@@ -16,7 +16,6 @@ export function generateStatusBar(): string {
     </div>
   `;
 }
-
 export function generateSuiVersionSection(params: WebviewParams): string {
   const { isSuiOutdated, suiVersion, latestSuiVersion } = params;
   
