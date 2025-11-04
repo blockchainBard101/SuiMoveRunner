@@ -4,6 +4,50 @@ export const webviewScript = `
   const vscode = acquireVsCodeApi();
   const argsMapping = \${JSON.stringify(argsMapping)};
 
+  // Event delegation for selectMoveProjectBtn (works even when button is recreated)
+  document.addEventListener('click', function(e) {
+    const target = e.target;
+    // Handle clicks on button or its children
+    let button = null;
+    if (target.id === 'selectMoveProjectBtn') {
+      button = target;
+    } else if (target.closest) {
+      button = target.closest('#selectMoveProjectBtn');
+    } else {
+      // Fallback: walk up the parent chain
+      let el = target;
+      while (el && el !== document) {
+        if (el.id === 'selectMoveProjectBtn') {
+          button = el;
+          break;
+        }
+        el = el.parentElement;
+      }
+    }
+    
+    if (button && !button.disabled) {
+      const select = document.getElementById('moveProjectSelect');
+      if (select && select.value) {
+        // Show loading state on button
+        button.disabled = true;
+        button.textContent = '⏳ Selecting...';
+        button.classList.add('btn-disabled');
+        button.classList.remove('btn-primary');
+        
+        // Disable the select dropdown too
+        select.disabled = true;
+        
+        // Don't modify status text here - renderHtml will set it correctly
+        // The button loading state is sufficient feedback
+        
+        vscode.postMessage({ 
+          command: 'select-move-project', 
+          projectPath: select.value 
+        });
+      }
+    }
+  });
+
   // Gas coins functionality
   function toggleGasCoins() {
     const section = document.getElementById('gasCoinsSection');
@@ -730,18 +774,7 @@ export const webviewScript = `
       });
     }
 
-    const selectMoveProjectBtn = document.getElementById('selectMoveProjectBtn');
-    if (selectMoveProjectBtn) {
-      selectMoveProjectBtn.addEventListener('click', () => {
-        const select = document.getElementById('moveProjectSelect');
-        if (select && select.value) {
-          vscode.postMessage({ 
-            command: 'select-move-project', 
-            projectPath: select.value 
-          });
-        }
-      });
-    }
+    // Note: selectMoveProjectBtn event listener is set up via event delegation at the top level
 
     // Attach validation listeners
     document.getElementById('primaryCoinSelect')?.addEventListener('change', validateMergeForm);
@@ -777,6 +810,30 @@ export const webviewScript = `
     validateImportForm();
   });
 
+  // Helper function to reset select project button state
+  function resetSelectProjectButton() {
+    const selectMoveProjectBtn = document.getElementById('selectMoveProjectBtn');
+    const select = document.getElementById('moveProjectSelect');
+    const activeStatus = document.getElementById('activeMoveProjectStatus');
+    
+    if (selectMoveProjectBtn) {
+      selectMoveProjectBtn.disabled = false;
+      selectMoveProjectBtn.textContent = '✅ Select Project';
+      selectMoveProjectBtn.classList.remove('btn-disabled');
+      selectMoveProjectBtn.classList.add('btn-primary');
+    }
+    
+    if (select) {
+      select.disabled = false;
+    }
+    
+    // Reset active status (will be updated on next render, but clear loading state)
+    if (activeStatus) {
+      // Keep it visible but reset color - the actual project name will come from render
+      activeStatus.style.color = 'var(--vscode-inputValidation-infoForeground)';
+    }
+  }
+
   // Listen for extension messages
   window.addEventListener('message', event => {
     const message = event.data;
@@ -790,11 +847,43 @@ export const webviewScript = `
         break;
       case 'set-status':
         setStatusMessage(message.message);
+        // Reset button if status is cleared (indicates completion or error)
+        if (!message.message && document.getElementById('selectMoveProjectBtn')) {
+          resetSelectProjectButton();
+        }
         break;
       case 'gas-coin-copied':
         setStatusMessage('📋 Gas coin ID copied to clipboard!');
         // Auto-clear the message after 2 seconds
         setTimeout(() => setStatusMessage(''), 2000);
+        break;
+      case 'move-project-loading':
+        // Re-apply loading state after HTML is replaced
+        // Note: Don't change status text - it already has the correct project name from renderHtml
+        const loadingBtn = document.getElementById('selectMoveProjectBtn');
+        const loadingSelect = document.getElementById('moveProjectSelect');
+        
+        if (loadingBtn) {
+          loadingBtn.disabled = true;
+          loadingBtn.textContent = '⏳ Selecting...';
+          loadingBtn.classList.add('btn-disabled');
+          loadingBtn.classList.remove('btn-primary');
+        }
+        
+        if (loadingSelect) {
+          loadingSelect.disabled = true;
+        }
+        
+        // Don't modify the status - it already shows the correct project name
+        // The button loading state is sufficient feedback
+        break;
+      case 'move-project-selected':
+        resetSelectProjectButton();
+        setStatusMessage(message.message || 'Project selected successfully');
+        break;
+      case 'move-project-error':
+        resetSelectProjectButton();
+        setStatusMessage(message.message || 'Failed to select project');
         break;
       default:
         break;

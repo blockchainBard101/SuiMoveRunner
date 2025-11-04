@@ -1663,19 +1663,48 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
           const projectPath = message.projectPath;
           if (!projectPath) {
             vscode.window.showErrorMessage("No project path provided");
+            this.view?.webview.postMessage({
+              command: "move-project-error",
+              message: "No project path provided"
+            });
             return;
           }
 
           try {
             this.activeMoveProjectRoot = projectPath;
-            this.renderHtml(this.view!);
             
             const projectName = this.foundMoveProjects.find(p => p.path === projectPath)?.name || "Unknown";
+            
+            // Re-render the view (this will load package data and modules)
+            // The button will stay in loading state until renderHtml completes
+            await this.renderHtml(this.view!);
+            
+            // After HTML is set, the DOM is replaced and button is recreated in default state
+            // Send a message to keep the button in loading state
+            this.view?.webview.postMessage({
+              command: "move-project-loading",
+              message: "Loading package..."
+            });
+            
+            // Add a delay to ensure webview has fully rendered and processed the loading message
+            // This keeps the button in loading state until package is fully loaded
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Send success message after render and rendering delay completes
+            this.view?.webview.postMessage({
+              command: "move-project-selected",
+              message: `Project "${projectName}" selected successfully`
+            });
+            
             vscode.window.showInformationMessage(
               `✅ Selected Move project: ${projectName}`
             );
           } catch (err) {
             vscode.window.showErrorMessage(`❌ Failed to select Move project: ${err}`);
+            this.view?.webview.postMessage({
+              command: "move-project-error",
+              message: `Failed to select project: ${err}`
+            });
           }
           break;
         }

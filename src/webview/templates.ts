@@ -381,11 +381,9 @@ export function generateMoveProjectSelectionSection(params: WebviewParams): stri
           <button id="selectMoveProjectBtn" class="btn-primary">✅ Select Project</button>
           <button id="rescanMoveProjectsBtn" class="btn-secondary">🔄 Rescan</button>
         </div>
-        ${activeMoveProjectRoot ? `
-          <div style="font-size: 11px; color: var(--vscode-inputValidation-infoForeground); margin-top: 6px;">
-            ✓ Active: ${foundMoveProjects.find(p => p.path === activeMoveProjectRoot)?.name || 'Unknown'}
-          </div>
-        ` : ''}
+        <div id="activeMoveProjectStatus" style="font-size: 11px; color: var(--vscode-inputValidation-infoForeground); margin-top: 6px; ${!activeMoveProjectRoot ? 'display: none;' : ''}">
+          ✓ Active: ${activeMoveProjectRoot ? (foundMoveProjects.find(p => p.path === activeMoveProjectRoot)?.name || 'Unknown') : ''}
+        </div>
       </div>
     `;
   }
