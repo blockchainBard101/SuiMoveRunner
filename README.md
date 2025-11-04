@@ -1,6 +1,6 @@
 # Sui Move Runner
 
-[![Version](https://img.shields.io/badge/version-0.3.1-blue.svg)](https://marketplace.visualstudio.com/items?itemName=blockchainBard.sui-move-runner)
+[![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](https://marketplace.visualstudio.com/items?itemName=blockchainBard.sui-move-runner)
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.80.0+-blue.svg)](https://code.visualstudio.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -8,7 +8,7 @@
 
 ## 📸 Screenshots
 
-<img src="media/Screenshot%202025-09-15%20at%206.49.05%20AM.png" alt="Package Creation" width="160" style="display: inline-block; margin-right: 10px;"> <img src="media/Screenshot%202025-09-15%20at%206.51.16%20AM.png" alt="Build and Test" width="160" style="display: inline-block; margin-right: 10px;"> <img src="media/Screenshot%202025-11-03%20at%2011.50.31%20PM.png" alt="Wallet Management" width="160" style="display: inline-block; margin-right: 10px;"> <img src="media/Screenshot%202025-11-03%20at%2011.49.12%20PM.png" alt="Main Interface" width="160" style="display: inline-block; margin-right: 10px;"> <img src="media/Screenshot%202025-11-03%20at%2011.52.01%20PM.png" alt="Network Operations" width="160" style="display: inline-block; margin-right: 10px;"> <img src="media/Screenshot%202025-11-04%20at%2012.21.28%20AM.png" alt="Screenshot 1" width="160" style="display: inline-block; margin-right: 10px;"> <img src="media/Screenshot%202025-11-04%20at%2012.27.11%20AM.png" alt="Screenshot 2" width="160">
+<img src="media/Screenshot-2025-09-15-at-6.49.05-AM.png" alt="Package Creation" width="160" style="display: inline-block; margin-right: 10px;"> <img src="media/Screenshot-2025-09-15-at-6.51.16-AM.png" alt="Build and Test" width="160" style="display: inline-block; margin-right: 10px;"> <img src="media/Screenshot-2025-11-03-at-11.50.31-PM.png" alt="Wallet Management" width="160" style="display: inline-block; margin-right: 10px;"> <img src="media/Screenshot-2025-11-03-at-11.49.12-PM.png" alt="Main Interface" width="160" style="display: inline-block; margin-right: 10px;"> <img src="media/Screenshot-2025-11-03-at-11.52.01-PM.png" alt="Network Operations" width="160" style="display: inline-block; margin-right: 10px;"> <img src="media/Screenshot-2025-11-04-at-12.21.28-AM.png" alt="Screenshot 1" width="160" style="display: inline-block; margin-right: 10px;"> <img src="media/Screenshot-2025-11-04-at-12.27.11-AM.png" alt="Screenshot 2" width="160">
 
 ---
 
