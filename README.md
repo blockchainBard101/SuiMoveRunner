@@ -1,6 +1,6 @@
 # Sui Move Runner
 
-[![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](https://marketplace.visualstudio.com/items?itemName=blockchainBard.sui-move-runner)
+[![Version](https://img.shields.io/badge/version-0.4.1-blue.svg)](https://marketplace.visualstudio.com/items?itemName=blockchainBard.sui-move-runner)
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.80.0+-blue.svg)](https://code.visualstudio.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -8,7 +8,7 @@
 
 ## 📸 Screenshots
 
-<img src="media/Screenshot-2025-09-15-at-6.49.05-AM.png" alt="Package Creation" width="160" style="display: inline-block; margin-right: 10px;"> <img src="media/Screenshot-2025-09-15-at-6.51.16-AM.png" alt="Build and Test" width="160" style="display: inline-block; margin-right: 10px;"> <img src="media/Screenshot-2025-11-03-at-11.50.31-PM.png" alt="Wallet Management" width="160" style="display: inline-block; margin-right: 10px;"> <img src="media/Screenshot-2025-11-03-at-11.49.12-PM.png" alt="Main Interface" width="160" style="display: inline-block; margin-right: 10px;"> <img src="media/Screenshot-2025-11-03-at-11.52.01-PM.png" alt="Network Operations" width="160" style="display: inline-block; margin-right: 10px;"> <img src="media/Screenshot-2025-11-04-at-12.21.28-AM.png" alt="Screenshot 1" width="160" style="display: inline-block; margin-right: 10px;"> <img src="media/Screenshot-2025-11-04-at-12.27.11-AM.png" alt="Screenshot 2" width="160">
+<img src="https://raw.githubusercontent.com/blockchainBard101/SuiMoveRunner/move-project-scan/media/Screenshot-2025-09-15-at-6.49.05-AM.png" alt="Package Creation" width="160" style="display: inline-block; margin-right: 10px;"> <img src="https://raw.githubusercontent.com/blockchainBard101/SuiMoveRunner/move-project-scan/media/Screenshot-2025-09-15-at-6.51.16-AM.png" alt="Build and Test" width="160" style="display: inline-block; margin-right: 10px;"> <img src="https://raw.githubusercontent.com/blockchainBard101/SuiMoveRunner/move-project-scan/media/Screenshot-2025-11-03-at-11.50.31-PM.png" alt="Wallet Management" width="160" style="display: inline-block; margin-right: 10px;"> <img src="https://raw.githubusercontent.com/blockchainBard101/SuiMoveRunner/move-project-scan/media/Screenshot-2025-11-03-at-11.49.12-PM.png" alt="Main Interface" width="160" style="display: inline-block; margin-right: 10px;"> <img src="https://raw.githubusercontent.com/blockchainBard101/SuiMoveRunner/move-project-scan/media/Screenshot-2025-11-03-at-11.52.01-PM.png" alt="Network Operations" width="160" style="display: inline-block; margin-right: 10px;"> <img src="https://raw.githubusercontent.com/blockchainBard101/SuiMoveRunner/move-project-scan/media/Screenshot-2025-11-04-at-12.21.28-AM.png" alt="Screenshot 1" width="160" style="display: inline-block; margin-right: 10px;"> <img src="https://raw.githubusercontent.com/blockchainBard101/SuiMoveRunner/move-project-scan/media/Screenshot-2025-11-04-at-12.27.11-AM.png" alt="Screenshot 2" width="160">
 
 ---
 
@@ -195,7 +195,7 @@ The extension automatically detects and uses your existing Sui client configurat
 
 ### Getting Help
 
-- Check the [Issues](https://github.com/blockchainBard/SuiMoveRunner/issues) page
+- Check the [Issues](https://github.com/blockchainBard101/SuiMoveRunner/issues) page
 - Review the [Sui Documentation](https://docs.sui.io/)
 - Join the [Sui Discord](https://discord.gg/sui) community
 
@@ -256,6 +256,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Made with ❤️ for the Sui ecosystem**
 
-[⭐ Star us on GitHub](https://github.com/blockchainBard/SuiMoveRunner) | [🐛 Report Issues](https://github.com/blockchainBard/SuiMoveRunner/issues) | [💬 Join Discord](https://discord.gg/sui)
+[⭐ Star us on GitHub](https://github.com/blockchainBard101/SuiMoveRunner) | [🐛 Report Issues](https://github.com/blockchainBard101/SuiMoveRunner/issues) | [💬 Join Discord](https://discord.gg/sui)
 
 </div>
