@@ -1577,6 +1577,63 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
           }, 4000);
           break;
         }
+
+        case "transfer-coin": {
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          const rootPath = workspaceFolder?.uri.fsPath;
+
+          const coinId = message.coinId as string;
+          const coinType = message.coinType as string;
+          const to = message.to as string;
+          const amount = message.amount as string | undefined;
+          if (!coinId || !to) {
+            vscode.window.showErrorMessage("Provide coin and recipient");
+            return;
+          }
+
+          const terminal = vscode.window.createTerminal({ name: "Sui Transfer Coin" });
+          terminal.show(true);
+          const isWindows = process.platform === 'win32';
+          
+          // Use transfer-sui for SUI coins, transfer for other coins
+          const isSui = coinType === "0x2::sui::SUI";
+          let transferCmd: string;
+          
+          if (isSui) {
+            transferCmd = `sui client transfer-sui --to ${to} --sui-coin-object-id ${coinId}`;
+            if (amount && amount.trim().length > 0) {
+              transferCmd += ` --amount ${amount.trim()}`;
+            }
+            transferCmd += ` --gas-budget 10000000`;
+          } else {
+            // For non-SUI coins, use the generic transfer command
+            transferCmd = `sui client transfer --to ${to} --coin-object-id ${coinId}`;
+            if (amount && amount.trim().length > 0) {
+              transferCmd += ` --amount ${amount.trim()}`;
+            }
+            // Default gas budget (in MIST)
+            transferCmd += ` --gas-budget 10000000`;
+          }
+          
+          const finalCmd = rootPath
+            ? (isWindows
+              ? `cd /d "${rootPath}" && ${transferCmd}`
+              : `cd "${rootPath}" && ${transferCmd}`)
+            : transferCmd;
+          terminal.sendText(finalCmd, true);
+
+          const coinName = isSui ? "SUI" : coinType.split("::").pop() || "coin";
+          vscode.window.showInformationMessage(
+            `📤 Transferring ${coinName} from ${coinId.slice(0,8)}... to ${to.slice(0,6)}...`
+          );
+
+          setTimeout(async () => {
+            await this.refreshWallets();
+            this.renderHtml(this.view!);
+            this.view?.webview.postMessage({ command: "set-status", message: "" });
+          }, 4000);
+          break;
+        }
         case "update-sui": {
           const isWindows = process.platform === 'win32';
           const isMacOS = process.platform === 'darwin';

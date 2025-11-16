@@ -112,14 +112,28 @@ export const webviewScript = `
   }
 
   function sendMergeCoin() {
-    const primary = (document.getElementById('primaryCoinSelect') || { value: '' }).value;
-    const toMerge = (document.getElementById('coinToMergeSelect') || { value: '' }).value;
+    const primarySelect = document.getElementById('primaryCoinSelect');
+    const toMergeSelect = document.getElementById('coinToMergeSelect');
+    if (!primarySelect || !toMergeSelect) {
+      setStatusMessage('Coin selects not found');
+      return;
+    }
+    const primary = primarySelect.value;
+    const toMerge = toMergeSelect.value;
     if (!primary || !toMerge) {
       setStatusMessage('Select both coins');
       return;
     }
     if (primary === toMerge) {
       setStatusMessage('Coins must be different');
+      return;
+    }
+    const primaryOption = primarySelect.options[primarySelect.selectedIndex];
+    const toMergeOption = toMergeSelect.options[toMergeSelect.selectedIndex];
+    const primaryType = primaryOption ? primaryOption.getAttribute('data-coin-type') : null;
+    const toMergeType = toMergeOption ? toMergeOption.getAttribute('data-coin-type') : null;
+    if (primaryType && toMergeType && primaryType !== toMergeType) {
+      setStatusMessage('Coins must be of the same type');
       return;
     }
     setStatusMessage('Merging coins...');
@@ -163,23 +177,30 @@ export const webviewScript = `
     vscode.postMessage(payload);
   }
 
-  function sendTransferSui() {
-    const coinId = (document.getElementById('transferSuiCoinSelect') || { value: '' }).value;
+  function sendTransferCoin() {
+    const coinSelect = document.getElementById('transferCoinSelect');
+    if (!coinSelect) {
+      setStatusMessage('Coin select not found');
+      return;
+    }
+    const coinId = coinSelect.value;
+    const selectedOption = coinSelect.options[coinSelect.selectedIndex];
+    const coinType = selectedOption ? selectedOption.getAttribute('data-coin-type') : null;
     const to = (document.getElementById('transferTo') || { value: '' }).value.trim();
     const amountStr = (document.getElementById('transferAmount') || { value: '' }).value.trim();
     if (!coinId) {
-      setStatusMessage('Select a SUI coin to transfer');
+      setStatusMessage('Select a coin to transfer');
       return;
     }
     if (!to) {
       setStatusMessage('Enter a recipient');
       return;
     }
-    const payload = { command: 'transfer-sui', coinId, to };
+    const payload = { command: 'transfer-coin', coinId, coinType: coinType || '0x2::sui::SUI', to };
     if (amountStr) {
       payload.amount = amountStr;
     }
-    setStatusMessage('Transferring SUI...');
+    setStatusMessage('Transferring coin...');
     vscode.postMessage(payload);
   }
 
@@ -258,9 +279,26 @@ export const webviewScript = `
   }
 
   function validateMergeForm() {
-    const primary = (document.getElementById('primaryCoinSelect') || { value: '' }).value;
-    const toMerge = (document.getElementById('coinToMergeSelect') || { value: '' }).value;
-    const valid = Boolean(primary && toMerge && primary !== toMerge);
+    const primarySelect = document.getElementById('primaryCoinSelect');
+    const toMergeSelect = document.getElementById('coinToMergeSelect');
+    if (!primarySelect || !toMergeSelect) {
+      return;
+    }
+    const primary = primarySelect.value;
+    const toMerge = toMergeSelect.value;
+    let valid = Boolean(primary && toMerge && primary !== toMerge);
+    
+    // Check if coins are of the same type
+    if (valid) {
+      const primaryOption = primarySelect.options[primarySelect.selectedIndex];
+      const toMergeOption = toMergeSelect.options[toMergeSelect.selectedIndex];
+      const primaryType = primaryOption ? primaryOption.getAttribute('data-coin-type') : null;
+      const toMergeType = toMergeOption ? toMergeOption.getAttribute('data-coin-type') : null;
+      if (primaryType && toMergeType && primaryType !== toMergeType) {
+        valid = false;
+      }
+    }
+    
     const btn = document.getElementById('mergeCoinsBtn');
     setButtonEnabled(btn, valid);
   }
@@ -290,14 +328,14 @@ export const webviewScript = `
   }
 
   function validateTransferForm() {
-    const coinId = (document.getElementById('transferSuiCoinSelect') || { value: '' }).value;
+    const coinId = (document.getElementById('transferCoinSelect') || { value: '' }).value;
     const to = (document.getElementById('transferTo') || { value: '' }).value.trim();
     const amountStr = (document.getElementById('transferAmount') || { value: '' }).value.trim();
     let valid = Boolean(coinId && to);
     if (amountStr) {
       valid = valid && /^\d+$/.test(amountStr);
     }
-    const btn = document.getElementById('transferSuiBtn');
+    const btn = document.getElementById('transferCoinBtn');
     setButtonEnabled(btn, valid);
   }
 
@@ -745,10 +783,10 @@ export const webviewScript = `
         sendSplitCoin();
       });
     }
-    const transferBtn = document.getElementById('transferSuiBtn');
+    const transferBtn = document.getElementById('transferCoinBtn');
     if (transferBtn) {
       transferBtn.addEventListener('click', () => {
-        sendTransferSui();
+        sendTransferCoin();
       });
     }
 
@@ -786,7 +824,7 @@ export const webviewScript = `
     document.getElementById('splitCount')?.addEventListener('input', validateSplitForm);
     document.getElementById('splitCount')?.addEventListener('keyup', validateSplitForm);
 
-    document.getElementById('transferSuiCoinSelect')?.addEventListener('change', validateTransferForm);
+    document.getElementById('transferCoinSelect')?.addEventListener('change', validateTransferForm);
     document.getElementById('transferTo')?.addEventListener('input', validateTransferForm);
     document.getElementById('transferTo')?.addEventListener('keyup', validateTransferForm);
     document.getElementById('transferAmount')?.addEventListener('input', validateTransferForm);

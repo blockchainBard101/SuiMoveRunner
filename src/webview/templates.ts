@@ -133,8 +133,61 @@ export function generateGasCoinsHtml(gasCoins: GasCoin[]): string {
   `;
 }
 
-export function generateCoinToolsSection(gasCoins: GasCoin[]): string {
-  if (gasCoins.length === 0) {
+// Helper interface for coin selection
+interface CoinOption {
+  coinObjectId: string;
+  coinType: string;
+  balance: string;
+  displayName: string;
+}
+
+// Extract all coin objects from portfolio for coin tools
+function getAllCoinObjects(coinPortfolio: CoinPortfolio | null, gasCoins: GasCoin[]): CoinOption[] {
+  const coins: CoinOption[] = [];
+  
+  // Add gas coins (SUI) first
+  gasCoins.forEach(coin => {
+    coins.push({
+      coinObjectId: coin.gasCoinId,
+      coinType: "0x2::sui::SUI",
+      balance: coin.suiBalance,
+      displayName: `${coin.gasCoinId.slice(0,8)}...${coin.gasCoinId.slice(-8)} (${coin.suiBalance} SUI)`
+    });
+  });
+  
+  // Add all other coins from portfolio
+  if (coinPortfolio) {
+    Object.keys(coinPortfolio.coinObjects).forEach(coinType => {
+      // Skip SUI as we already added it from gasCoins
+      if (coinType === "0x2::sui::SUI") {
+        return;
+      }
+      
+      const coinObjects = coinPortfolio.coinObjects[coinType];
+      const metadata = coinPortfolio.metadata[coinType];
+      const decimals = metadata?.decimals || 9;
+      const symbol = metadata?.symbol || coinType.split("::").pop() || "Unknown";
+      
+      coinObjects.forEach(coin => {
+        const balanceNum = parseFloat(coin.balance);
+        const displayBalance = (balanceNum / Math.pow(10, decimals)).toFixed(6);
+        coins.push({
+          coinObjectId: coin.coinObjectId,
+          coinType: coinType,
+          balance: displayBalance,
+          displayName: `${coin.coinObjectId.slice(0,8)}...${coin.coinObjectId.slice(-8)} (${displayBalance} ${symbol})`
+        });
+      });
+    });
+  }
+  
+  return coins;
+}
+
+export function generateCoinToolsSection(gasCoins: GasCoin[], coinPortfolio: CoinPortfolio | null): string {
+  const allCoins = getAllCoinObjects(coinPortfolio, gasCoins);
+  
+  if (allCoins.length === 0) {
     return "";
   }
 
@@ -145,16 +198,16 @@ export function generateCoinToolsSection(gasCoins: GasCoin[]): string {
         <button class="gas-coins-toggle" onclick="toggleCoinTools()">▼ Show</button>
       </div>
       <div id="coinToolsContainer" style="display: none;">
-        ${generateMergeCoinsSection(gasCoins)}
-        ${generateSplitCoinSection(gasCoins)}
-        ${generateTransferSuiSection(gasCoins)}
+        ${generateMergeCoinsSection(allCoins)}
+        ${generateSplitCoinSection(allCoins)}
+        ${generateTransferCoinSection(allCoins)}
       </div>
     </div>
   `;
 }
 
-function generateMergeCoinsSection(gasCoins: GasCoin[]): string {
-  if (gasCoins.length <= 1) {
+function generateMergeCoinsSection(coins: CoinOption[]): string {
+  if (coins.length <= 1) {
     return "";
   }
 
@@ -164,9 +217,9 @@ function generateMergeCoinsSection(gasCoins: GasCoin[]): string {
       <div class="input-group">
         <label class="input-label">Primary Coin (to keep)</label>
         <select id="primaryCoinSelect">
-          ${gasCoins
+          ${coins
             .map(
-              (c) => `<option value="${c.gasCoinId}">${c.gasCoinId.slice(0,8)}...${c.gasCoinId.slice(-8)} (${c.suiBalance} SUI)</option>`
+              (c) => `<option value="${c.coinObjectId}" data-coin-type="${c.coinType}">${c.displayName}</option>`
             )
             .join("")}
         </select>
@@ -174,29 +227,29 @@ function generateMergeCoinsSection(gasCoins: GasCoin[]): string {
       <div class="input-group">
         <label class="input-label">Coin to Merge</label>
         <select id="coinToMergeSelect">
-          ${gasCoins
+          ${coins
             .map(
-              (c) => `<option value="${c.gasCoinId}">${c.gasCoinId.slice(0,8)}...${c.gasCoinId.slice(-8)} (${c.suiBalance} SUI)</option>`
+              (c) => `<option value="${c.coinObjectId}" data-coin-type="${c.coinType}">${c.displayName}</option>`
             )
             .join("")}
         </select>
       </div>
       <button id="mergeCoinsBtn" class="coin-tools-btn btn-disabled" disabled>Merge into Primary</button>
-      <div class="input-help">Select a primary coin to keep, and a coin to merge into it.</div>
+      <div class="input-help">Select a primary coin to keep, and a coin to merge into it. Coins must be of the same type.</div>
     </div>
   `;
 }
 
-function generateSplitCoinSection(gasCoins: GasCoin[]): string {
+function generateSplitCoinSection(coins: CoinOption[]): string {
   return `
     <div class="coin-tools-form">
       <div class="coin-tools-section-title split-title">Split Coin</div>
       <div class="input-group">
         <label class="input-label">Coin to Split</label>
         <select id="splitCoinSelect">
-          ${gasCoins
+          ${coins
             .map(
-              (c) => `<option value="${c.gasCoinId}">${c.gasCoinId.slice(0,8)}...${c.gasCoinId.slice(-8)} (${c.suiBalance} SUI)</option>`
+              (c) => `<option value="${c.coinObjectId}" data-coin-type="${c.coinType}">${c.displayName}</option>`
             )
             .join("")}
         </select>
@@ -216,16 +269,16 @@ function generateSplitCoinSection(gasCoins: GasCoin[]): string {
   `;
 }
 
-function generateTransferSuiSection(gasCoins: GasCoin[]): string {
+function generateTransferCoinSection(coins: CoinOption[]): string {
   return `
     <div class="coin-tools-form">
-      <div class="coin-tools-section-title transfer-title">Transfer SUI</div>
+      <div class="coin-tools-section-title transfer-title">Transfer Coin</div>
       <div class="input-group">
         <label class="input-label">Coin to Transfer</label>
-        <select id="transferSuiCoinSelect">
-          ${gasCoins
+        <select id="transferCoinSelect">
+          ${coins
             .map(
-              (c) => `<option value="${c.gasCoinId}">${c.gasCoinId.slice(0,8)}...${c.gasCoinId.slice(-8)} (${c.suiBalance} SUI)</option>`
+              (c) => `<option value="${c.coinObjectId}" data-coin-type="${c.coinType}">${c.displayName}</option>`
             )
             .join("")}
         </select>
@@ -240,7 +293,7 @@ function generateTransferSuiSection(gasCoins: GasCoin[]): string {
         <input id="transferAmount" placeholder="If omitted, whole coin transfers" type="number" min="0" step="1" />
         <div class="input-help">Leave empty to transfer the entire coin</div>
       </div>
-      <button id="transferSuiBtn" class="coin-tools-btn btn-disabled" disabled>Transfer SUI</button>
+      <button id="transferCoinBtn" class="coin-tools-btn btn-disabled" disabled>Transfer Coin</button>
     </div>
   `;
 }
@@ -287,7 +340,7 @@ export function generateWalletSection(params: WebviewParams): string {
       </div>
       
       ${generateGasCoinsHtml(gasCoins)}
-      ${generateCoinToolsSection(gasCoins)}
+      ${generateCoinToolsSection(gasCoins, coinPortfolio || null)}
 
       <div class="import-wallet-section">
         <div class="import-wallet-header">
