@@ -4,6 +4,7 @@ import * as fs from "fs";
 import * as path from "path";
 import fetch from "node-fetch";
 import * as toml from "toml";
+import * as tomlify from "tomlify-j0.4";
 import { getWebviewContent, GasCoin } from "./webviewTemplate";
 import { CoinPortfolio, CoinBalance, CoinObject, CoinMetadata, MoveProject } from "./webview/types";
 
@@ -11,7 +12,7 @@ import { CoinPortfolio, CoinBalance, CoinObject, CoinMetadata, MoveProject } fro
 async function makeRpcCall(rpcUrl: string, method: string, params: any[] = []): Promise<any> {
   try {
     console.log(`Making RPC call: ${method} to ${rpcUrl}`);
-    
+
     const response = await fetch(rpcUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -24,16 +25,16 @@ async function makeRpcCall(rpcUrl: string, method: string, params: any[] = []): 
       // Add timeout to prevent hanging
       signal: AbortSignal.timeout(10000), // 10 second timeout
     });
-    
+
     if (!response.ok) {
       throw new Error(`RPC call failed: ${response.status} ${response.statusText}`);
     }
-    
+
     const data = await response.json();
     if (data.error) {
       throw new Error(`RPC error: ${data.error.message}`);
     }
-    
+
     console.log(`RPC call successful: ${method}`);
     return data.result;
   } catch (error) {
@@ -45,36 +46,36 @@ async function makeRpcCall(rpcUrl: string, method: string, params: any[] = []): 
 async function getWalletBalanceRpc(rpcUrl: string, address: string): Promise<{ balance: string; gasCoins: GasCoin[] }> {
   try {
     console.log(`Fetching balance for address ${address} via RPC ${rpcUrl}`);
-    
+
     let totalMistBalance = 0;
     const gasCoins: GasCoin[] = [];
-    
+
     // Try suix_getBalance first (more specific)
     try {
       const suiBalance = await makeRpcCall(rpcUrl, "suix_getBalance", [address, "0x2::sui::SUI"]);
       console.log("SUI balance response:", suiBalance);
-      
+
       if (suiBalance && suiBalance.totalBalance) {
         totalMistBalance = parseInt(suiBalance.totalBalance.toString());
       }
     } catch (balanceError) {
       console.log("suix_getBalance failed, trying suix_getAllBalances:", balanceError);
-      
+
       // Fallback to suix_getAllBalances
       const balances = await makeRpcCall(rpcUrl, "suix_getAllBalances", [address]);
       console.log("All balances response:", balances);
-      
+
       // Find SUI balance
       const suiBalance = balances.find((b: any) => b.coinType === "0x2::sui::SUI");
       if (suiBalance) {
         totalMistBalance = parseInt(suiBalance.totalBalance || "0");
       }
     }
-    
+
     // Get all coins for detailed gas coin information
     const coins = await makeRpcCall(rpcUrl, "suix_getAllCoins", [address, null, 100]);
     console.log("Coins response:", coins);
-    
+
     if (coins.data) {
       coins.data.forEach((coin: any) => {
         if (coin.coinType === "0x2::sui::SUI" && coin.balance) {
@@ -87,9 +88,9 @@ async function getWalletBalanceRpc(rpcUrl: string, address: string): Promise<{ b
         }
       });
     }
-    
+
     console.log(`Total balance: ${totalMistBalance} MIST, Gas coins: ${gasCoins.length}`);
-    
+
     return {
       balance: (totalMistBalance / 1e9).toFixed(6),
       gasCoins,
@@ -115,20 +116,20 @@ async function checkRpcHealth(rpcUrl: string): Promise<boolean> {
 async function getCoinPortfolio(rpcUrl: string, address: string): Promise<CoinPortfolio> {
   try {
     console.log(`Fetching coin portfolio for address ${address} via RPC ${rpcUrl}`);
-    
+
     // Get all balances
     const balances = await makeRpcCall(rpcUrl, "suix_getAllBalances", [address]);
     console.log("All balances response:", balances);
-    
+
     // Get all coins with pagination
     const coinObjects: Record<string, CoinObject[]> = {};
     let cursor: string | null = null;
     let hasNextPage = true;
-    
+
     while (hasNextPage) {
       const coinsResponse = await makeRpcCall(rpcUrl, "suix_getAllCoins", [address, cursor, 100]);
       console.log("Coins response:", coinsResponse);
-      
+
       if (coinsResponse.data) {
         coinsResponse.data.forEach((coin: any) => {
           const coinType = coin.coinType;
@@ -145,15 +146,15 @@ async function getCoinPortfolio(rpcUrl: string, address: string): Promise<CoinPo
           });
         });
       }
-      
+
       cursor = coinsResponse.nextCursor;
       hasNextPage = coinsResponse.hasNextPage;
     }
-    
+
     // Get metadata for each coin type
     const metadata: Record<string, CoinMetadata> = {};
     const uniqueCoinTypes = [...new Set(Object.keys(coinObjects))];
-    
+
     for (const coinType of uniqueCoinTypes) {
       try {
         console.log(`Fetching metadata for coin type: ${coinType}`);
@@ -172,7 +173,7 @@ async function getCoinPortfolio(rpcUrl: string, address: string): Promise<CoinPo
         // Provide default metadata with better defaults
         const coinName = coinType.split('::').pop() || 'Unknown';
         let defaultDecimals = 9; // Default for SUI
-        
+
         // Special handling for common tokens
         if (coinType.toLowerCase().includes('usdc')) {
           defaultDecimals = 6;
@@ -181,7 +182,7 @@ async function getCoinPortfolio(rpcUrl: string, address: string): Promise<CoinPo
         } else if (coinType.toLowerCase().includes('weth')) {
           defaultDecimals = 18;
         }
-        
+
         metadata[coinType] = {
           decimals: defaultDecimals,
           name: coinName,
@@ -192,9 +193,9 @@ async function getCoinPortfolio(rpcUrl: string, address: string): Promise<CoinPo
         };
       }
     }
-    
+
     console.log(`Coin portfolio fetched: ${balances.length} coin types, ${Object.keys(coinObjects).length} coin types with objects`);
-    
+
     return {
       balances: balances.map((balance: any) => ({
         coinType: balance.coinType,
@@ -215,9 +216,9 @@ function runCommand(command: string, cwd?: string): Promise<string> {
   return new Promise((resolve, reject) => {
     // Use proper shell for Windows compatibility
     const isWindows = process.platform === 'win32';
-    
-    exec(command, { 
-      cwd, 
+
+    exec(command, {
+      cwd,
       shell: isWindows ? 'cmd.exe' : undefined
     }, (error: any, stdout: any, stderr: any) => {
       if (error) {
@@ -275,14 +276,14 @@ function compareVersions(current: string, latest: string): boolean {
   // Strip any suffixes like "-homebrew", "-rc.0", etc.
   const cleanCurrent = current.split('-')[0];
   const cleanLatest = latest.split('-')[0];
-  
+
   const currentParts = cleanCurrent.split('.').map(Number);
   const latestParts = cleanLatest.split('.').map(Number);
-  
+
   for (let i = 0; i < Math.max(currentParts.length, latestParts.length); i++) {
     const currentPart = currentParts[i] || 0;
     const latestPart = latestParts[i] || 0;
-    
+
     if (currentPart < latestPart) {
       return true;
     }
@@ -290,7 +291,7 @@ function compareVersions(current: string, latest: string): boolean {
       return false;
     }
   }
-  
+
   return false;
 }
 
@@ -302,20 +303,20 @@ function isMoveProject(directoryPath: string): boolean {
 
 async function scanForMoveProjects(rootPath: string, maxDepth: number = 3): Promise<MoveProject[]> {
   const moveProjects: MoveProject[] = [];
-  
+
   async function scanDirectory(currentPath: string, currentDepth: number, relativePath: string = ""): Promise<void> {
     if (currentDepth > maxDepth) {
       return;
     }
-    
+
     try {
       const entries = await fs.promises.readdir(currentPath, { withFileTypes: true });
-      
+
       for (const entry of entries) {
         if (entry.isDirectory()) {
           const fullPath = path.join(currentPath, entry.name);
           const newRelativePath = relativePath ? path.join(relativePath, entry.name) : entry.name;
-          
+
           // Check if this directory is a Move project
           if (isMoveProject(fullPath)) {
             moveProjects.push({
@@ -333,7 +334,7 @@ async function scanForMoveProjects(rootPath: string, maxDepth: number = 3): Prom
       console.log(`Error scanning directory ${currentPath}:`, error);
     }
   }
-  
+
   await scanDirectory(rootPath, 0);
   return moveProjects;
 }
@@ -344,26 +345,26 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
       vscode.window.registerWebviewViewProvider("suiRunner.sidebarView", provider)
     );
-    
+
     // Register commands
     context.subscriptions.push(
       vscode.commands.registerCommand('suimoverunner.createMovePackage', () => {
         vscode.window.showInformationMessage('Sui Move Package creation triggered from command palette');
       })
     );
-    
+
     context.subscriptions.push(
       vscode.commands.registerCommand('suimoverunner.publishMovePackage', () => {
         vscode.window.showInformationMessage('Sui Move Package publish triggered from command palette');
       })
     );
-    
+
     context.subscriptions.push(
       vscode.commands.registerCommand('suimoverunner.callMoveFunction', () => {
         vscode.window.showInformationMessage('Sui Move Function call triggered from command palette');
       })
     );
-    
+
     console.log('SuiMoveRunner extension activated successfully');
   } catch (error) {
     console.error('Failed to activate SuiMoveRunner extension:', error);
@@ -420,47 +421,20 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
     }
   }
 
-  private generateUpgradeToml(data: any): string {
-    let tomlContent = "# Sui Move Package Upgrade Capabilities\n";
-    tomlContent +=
-      "# This file tracks upgrade capabilities across different networks\n\n";
-
-    if (data.environments) {
-      Object.entries(data.environments).forEach(
-        ([env, envData]: [string, any]) => {
-          tomlContent += `[environments.${env}]\n`;
-          tomlContent += `upgrade_cap = "${envData.upgrade_cap}"\n`;
-          tomlContent += `package_id = "${envData.package_id}"\n`;
-          if (envData.network_rpc) {
-            tomlContent += `network_rpc = "${envData.network_rpc}"\n`;
-          }
-          if (envData.created_at) {
-            tomlContent += `created_at = "${envData.created_at}"\n`;
-          }
-          if (envData.updated_at) {
-            tomlContent += `updated_at = "${envData.updated_at}"\n`;
-          }
-          tomlContent += "\n";
-        }
-      );
-    }
-
-    return tomlContent;
-  }
 
   async getKeyIdentityForAddress(address: string): Promise<string | null> {
     try {
       // Get all addresses to find the key identity
       const output = await runCommand('sui client addresses --json');
       const parsed = this.safeJsonParse(output);
-      
+
       // The addresses format is an array of arrays: [alias, address]
       // The key identity is the alias (first element)
       if (parsed.addresses && Array.isArray(parsed.addresses)) {
         const wallet = parsed.addresses.find((addr: any[]) => addr[1] === address);
         return wallet?.[0] || null; // keyIdentity is the alias at index 0
       }
-      
+
       console.error('Unexpected addresses response format:', parsed);
       return null;
     } catch (error) {
@@ -504,7 +478,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
         }
       }
       this.availableEnvs = merged;
-      
+
       // Verify current environment is healthy via RPC
       if (this.activeEnv && this.activeEnv !== "None") {
         const currentRpc = this.availableEnvs.find(e => e.alias === this.activeEnv)?.rpc;
@@ -540,7 +514,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
           packageId: envData.packageId || envData.package_id,
         };
       }
-    } catch {}
+    } catch { }
     return null;
   }
 
@@ -556,10 +530,10 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
     try {
       const currentVersion = await getSuiVersion();
       const latestVersion = await getLatestSuiVersion();
-      
+
       this.suiVersion = currentVersion || "Unknown";
       this.latestSuiVersion = latestVersion || "Unknown";
-      
+
       if (currentVersion && latestVersion) {
         this.isSuiOutdated = compareVersions(currentVersion, latestVersion);
       } else {
@@ -582,7 +556,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
 
     const rootPath = workspaceFolder.uri.fsPath;
     this.foundMoveProjects = await scanForMoveProjects(rootPath);
-    
+
     // Set active project root to the first found project if none is set
     if (this.foundMoveProjects.length > 0 && !this.activeMoveProjectRoot) {
       this.activeMoveProjectRoot = this.foundMoveProjects[0].path;
@@ -592,10 +566,10 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
   async resolveWebviewView(view: vscode.WebviewView) {
     this.view = view;
     view.webview.options = { enableScripts: true };
-    
+
     // Scan for Move projects on activation
     await this.scanForMoveProjects();
-    
+
     this.renderHtml(view);
 
     view.webview.onDidReceiveMessage(async (message) => {
@@ -659,7 +633,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
           });
           terminal.show(true);
           const isWindows = process.platform === 'win32';
-          const buildCmd = isWindows 
+          const buildCmd = isWindows
             ? `cd /d "${rootPath}" && sui move build`
             : `cd "${rootPath}" && sui move build`;
           terminal.sendText(buildCmd, true);
@@ -686,6 +660,48 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
           );
 
           try {
+            // Pre-publish: Reset addresses in Move.toml to 0x0
+            const moveTomlPath = path.join(rootPath, "Move.toml");
+            if (fs.existsSync(moveTomlPath)) {
+              try {
+                let moveTomlContent = fs.readFileSync(moveTomlPath, "utf-8");
+                const moveData = toml.parse(moveTomlContent);
+                const pkgName = moveData.package?.name;
+                let changed = false;
+
+                // 1. Fix [environments] section if missing (Surgically Force Add)
+                if (this.activeEnv) {
+                  const chainId = await this.getChainIdentifier();
+                  if (chainId) {
+                    const result = this.surgicalUpdateToml(moveTomlContent, "environments", this.activeEnv, chainId, true);
+                    if (result.changed) {
+                      moveTomlContent = result.content;
+                      outputChannel.appendLine(`✅ Added/Updated environment ${this.activeEnv} with chain-id ${chainId} in Move.toml`);
+                      changed = true;
+                    }
+                  }
+                }
+
+                // 2. Reset package address to 0x0 (Surgically Only if exists)
+                if (pkgName) {
+                  const result = this.surgicalUpdateToml(moveTomlContent, "addresses", pkgName, "0x0", false);
+                  if (result.changed) {
+                    moveTomlContent = result.content;
+                    outputChannel.appendLine(`✅ Reset address for ${pkgName} in Move.toml to 0x0.`);
+                    changed = true;
+                  }
+                }
+
+                if (changed) {
+                  fs.writeFileSync(moveTomlPath, moveTomlContent);
+                  // Add a small delay to ensure OS filesystem flush
+                  await new Promise(resolve => setTimeout(resolve, 500));
+                }
+              } catch (err) {
+                outputChannel.appendLine(`⚠️ Failed to update Move.toml before publishing: ${err}`);
+              }
+            }
+
             const isWindows = process.platform === 'win32';
             const publishProcess = exec(`sui client publish`, {
               cwd: rootPath,
@@ -732,92 +748,49 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
                   }
                 }
 
-                // Extract package ID from Move.lock for current env
-                let pkg = "";
-                try {
-                  const lockFile = fs.readFileSync(
-                    path.join(rootPath, "Move.lock"),
-                    "utf-8"
-                  );
-                  const lockData = toml.parse(lockFile);
-                  const envSection =
-                    lockData.env?.[this.activeEnv] ||
-                    lockData.env?.default ||
-                    {};
-                  pkg =
-                    envSection["latest-published-id"] ||
-                    envSection["original-published-id"] ||
-                    "";
-                } catch {
-                  pkg = "";
+                // Extract package ID from multiple sources
+                let pkg = this.extractPackageId(rootPath, this.activeEnv);
+
+                // Post-publish: Update Move.toml with new package ID (Surgical)
+                if (pkg && fs.existsSync(moveTomlPath)) {
+                  try {
+                    let newContent = fs.readFileSync(moveTomlPath, "utf-8");
+                    const moveData = toml.parse(newContent);
+                    const pkgName = moveData.package?.name;
+                    let postChanged = false;
+
+                    // Update published-at in [package] section
+                    const pubResult = this.surgicalUpdateToml(newContent, "package", "published-at", pkg, true);
+                    if (pubResult.changed) {
+                      newContent = pubResult.content;
+                      postChanged = true;
+                    }
+
+                    // Update package address in [addresses] section (Only if exists)
+                    if (pkgName) {
+                      const addrResult = this.surgicalUpdateToml(newContent, "addresses", pkgName, pkg, false);
+                      if (addrResult.changed) {
+                        newContent = addrResult.content;
+                        postChanged = true;
+                      }
+                    }
+
+                    if (postChanged) {
+                      fs.writeFileSync(moveTomlPath, newContent);
+                      outputChannel.appendLine(`✅ Updated Move.toml: published-at = ${pkg}${pkgName ? `, ${pkgName} = ${pkg}` : ""}`);
+                    }
+                  } catch (err) {
+                    outputChannel.appendLine(`⚠️ Failed to update Move.toml after publishing: ${err}`);
+                  }
                 }
 
-                if (upgradeCapId && pkg) {
-                  const upgradeTomlPath = path.join(rootPath, "upgrade.toml");
-
-                  // Read existing upgrade.toml or create new structure
-                  let upgradeData: any = { environments: {} };
-                  if (fs.existsSync(upgradeTomlPath)) {
-                    try {
-                      const existingContent = fs.readFileSync(
-                        upgradeTomlPath,
-                        "utf-8"
-                      );
-                      const existingData = toml.parse(existingContent);
-
-                      // Migrate old format to new format if needed
-                      if (existingData.upgrade && !existingData.environments) {
-                        const oldEnv =
-                          existingData.upgrade.environment || "unknown";
-                        upgradeData.environments = {
-                          [oldEnv]: {
-                            upgrade_cap:
-                              existingData.upgrade.upgrade_cap ||
-                              existingData.upgrade.upgradeCap,
-                            package_id:
-                              existingData.upgrade.package_id ||
-                              existingData.upgrade.packageId,
-                            created_at: existingData.upgrade.created_at,
-                            updated_at: existingData.upgrade.updated_at,
-                          },
-                        };
-                      } else {
-                        upgradeData = existingData;
-                      }
-                    } catch {
-                      upgradeData = { environments: {} };
-                    }
-                  }
-
-                  // Ensure environments object exists
-                  if (!upgradeData.environments) {
-                    upgradeData.environments = {};
-                  }
-
-                  // Add or update current environment
-                  upgradeData.environments[this.activeEnv] = {
-                    upgrade_cap: upgradeCapId,
-                    package_id: pkg,
-                    created_at: new Date().toISOString(),
-                    network_rpc:
-                      this.availableEnvs.find((e) => e.alias === this.activeEnv)
-                        ?.rpc || "",
-                  };
-
-                  // Convert to TOML format
-                  const upgradeTomlContent =
-                    this.generateUpgradeToml(upgradeData);
-                  fs.writeFileSync(upgradeTomlPath, upgradeTomlContent);
-
-                  vscode.window.showInformationMessage(
-                    `📄 UpgradeCap saved to upgrade.toml for ${this.activeEnv}: ${upgradeCapId}`
-                  );
-                } else {
+                if (!upgradeCapId || !pkg) {
                   vscode.window.showWarningMessage(
                     "⚠️ Could not find UpgradeCap or package ID in publish output."
                   );
                 }
 
+                this.renderHtml(this.view!);
                 this.renderHtml(this.view!);
               } else {
                 vscode.window.showErrorMessage(
@@ -885,7 +858,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             const isWindows = process.platform === 'win32';
             const upgradeProcess = exec(
               `sui client upgrade --upgrade-capability ${upgradeCapInfo.upgradeCap}`,
-              { 
+              {
                 cwd: rootPath,
                 shell: isWindows ? 'cmd.exe' : undefined,
               }
@@ -932,57 +905,16 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
                   }
                 }
 
-                // Extract latest package ID from Move.lock
-                let pkg = "";
-                try {
-                  const lockFile = fs.readFileSync(
-                    path.join(rootPath, "Move.lock"),
-                    "utf-8"
-                  );
-                  const lockData = toml.parse(lockFile);
-                  const envSection =
-                    lockData.env?.[this.activeEnv] ||
-                    lockData.env?.default ||
-                    {};
-                  pkg =
-                    envSection["latest-published-id"] ||
-                    envSection["original-published-id"] ||
-                    "";
-                } catch {
-                  pkg = "";
-                }
+                // Extract latest package ID from multiple sources
+                let pkg = this.extractPackageId(rootPath, this.activeEnv);
 
-                if (newUpgradeCapId && pkg) {
-                  // Ensure environments object exists
-                  if (!upgradeData.environments) {
-                    upgradeData.environments = {};
-                  }
-
-                  // Update current environment with new upgrade cap
-                  upgradeData.environments[this.activeEnv] = {
-                    ...upgradeData.environments[this.activeEnv], // preserve existing data
-                    upgrade_cap: newUpgradeCapId,
-                    package_id: pkg,
-                    updated_at: new Date().toISOString(),
-                    network_rpc:
-                      this.availableEnvs.find((e) => e.alias === this.activeEnv)
-                        ?.rpc || "",
-                  };
-
-                  // Convert to TOML format and save
-                  const upgradeTomlContent =
-                    this.generateUpgradeToml(upgradeData);
-                  fs.writeFileSync(upgradeTomlPath, upgradeTomlContent);
-
-                  vscode.window.showInformationMessage(
-                    `📄 UpgradeCap updated in upgrade.toml for ${this.activeEnv}: ${newUpgradeCapId}`
-                  );
-                } else {
+                if (!newUpgradeCapId || !pkg) {
                   vscode.window.showWarningMessage(
                     "⚠️ Could not find UpgradeCap or package ID in upgrade output."
                   );
                 }
 
+                this.renderHtml(this.view!);
                 this.renderHtml(this.view!);
               } else {
                 vscode.window.showErrorMessage(
@@ -1015,7 +947,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             cmd += ` ${funcName}`;
           }
           const isWindows = process.platform === 'win32';
-          const testCmd = isWindows 
+          const testCmd = isWindows
             ? `cd /d "${rootPath}" && ${cmd}`
             : `cd "${rootPath}" && ${cmd}`;
           terminal.sendText(testCmd, true);
@@ -1050,7 +982,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
           });
           terminal.show(true);
           const isWindows = process.platform === 'win32';
-          const callCmdFinal = isWindows 
+          const callCmdFinal = isWindows
             ? `cd /d "${rootPath}" && ${callCmd}`
             : `cd "${rootPath}" && ${callCmd}`;
           terminal.sendText(callCmdFinal, true);
@@ -1079,7 +1011,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
           try {
             // Check if environment exists in default environments
             const isDefaultEnv = this.defaultEnvs.some((e) => e.alias === alias);
-            
+
             // Check if environment exists in user's Sui client
             let envExists = false;
             try {
@@ -1102,7 +1034,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
                 });
                 terminal.show(true);
                 const isWindows = process.platform === 'win32';
-                const localnetCmd = isWindows 
+                const localnetCmd = isWindows
                   ? 'set RUST_LOG=off,sui_node=info && sui start --with-faucet --force-regenesis'
                   : 'RUST_LOG="off,sui_node=info" sui start --with-faucet --force-regenesis';
                 terminal.sendText(localnetCmd, true);
@@ -1114,7 +1046,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             // If environment doesn't exist in Sui client, create it
             if (!envExists) {
               let rpc = "";
-              
+
               if (isDefaultEnv) {
                 // Use the default RPC for predefined environments
                 const defaultEnv = this.defaultEnvs.find((e) => e.alias === alias);
@@ -1420,7 +1352,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
           });
           terminal.show(true);
           const isWindows = process.platform === 'win32';
-          const localnetCmd = isWindows 
+          const localnetCmd = isWindows
             ? 'set RUST_LOG=off,sui_node=info && sui start --with-faucet --force-regenesis'
             : 'RUST_LOG="off,sui_node=info" sui start --with-faucet --force-regenesis';
           terminal.sendText(localnetCmd, true);
@@ -1515,7 +1447,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
           let splitCmd = `sui client split-coin --coin-id ${coinId}`;
           if (amounts && amounts.length > 0) {
             splitCmd += ` --amounts ${amounts.join(' ')}`;
-          } 
+          }
           if ((!amounts || amounts.length === 0) && (count !== undefined)) {
             splitCmd += ` --count ${count}`;
           }
@@ -1567,7 +1499,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
           terminal.sendText(finalCmd, true);
 
           vscode.window.showInformationMessage(
-            `📤 Transferring SUI from ${coinId.slice(0,8)}... to ${to.slice(0,6)}...`
+            `📤 Transferring SUI from ${coinId.slice(0, 8)}... to ${to.slice(0, 6)}...`
           );
 
           setTimeout(async () => {
@@ -1594,11 +1526,11 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
           const terminal = vscode.window.createTerminal({ name: "Sui Transfer Coin" });
           terminal.show(true);
           const isWindows = process.platform === 'win32';
-          
+
           // Use transfer-sui for SUI coins, transfer for other coins
           const isSui = coinType === "0x2::sui::SUI";
           let transferCmd: string;
-          
+
           if (isSui) {
             transferCmd = `sui client transfer-sui --to ${to} --sui-coin-object-id ${coinId}`;
             if (amount && amount.trim().length > 0) {
@@ -1614,7 +1546,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             // Default gas budget (in MIST)
             transferCmd += ` --gas-budget 10000000`;
           }
-          
+
           const finalCmd = rootPath
             ? (isWindows
               ? `cd /d "${rootPath}" && ${transferCmd}`
@@ -1624,7 +1556,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
 
           const coinName = isSui ? "SUI" : coinType.split("::").pop() || "coin";
           vscode.window.showInformationMessage(
-            `📤 Transferring ${coinName} from ${coinId.slice(0,8)}... to ${to.slice(0,6)}...`
+            `📤 Transferring ${coinName} from ${coinId.slice(0, 8)}... to ${to.slice(0, 6)}...`
           );
 
           setTimeout(async () => {
@@ -1641,7 +1573,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             name: "Sui CLI Update",
           });
           terminal.show(true);
-          
+
           let updateCmd = "";
           if (isWindows) {
             // Windows: Use Chocolatey
@@ -1653,18 +1585,18 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             // Linux: Use Cargo
             updateCmd = 'cargo install --locked --git https://github.com/MystenLabs/sui.git --branch testnet sui --features tracing';
           }
-          
+
           terminal.sendText(updateCmd, true);
           vscode.window.showInformationMessage(
             "🔄 Updating Sui CLI... Check the terminal for progress."
           );
-          
+
           // Refresh version check after a delay
           setTimeout(async () => {
             await this.checkSuiVersion();
             this.renderHtml(this.view!);
           }, 15000);
-          
+
           break;
         }
 
@@ -1687,16 +1619,16 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
               command: "set-status",
               message: "Scanning for Move projects...",
             });
-            
+
             await this.scanForMoveProjects();
-            
+
             this.view?.webview.postMessage({
               command: "set-status",
               message: "",
             });
-            
+
             this.renderHtml(this.view!);
-            
+
             if (this.foundMoveProjects.length === 0) {
               vscode.window.showInformationMessage(
                 "No Move projects found in the current workspace."
@@ -1729,30 +1661,30 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
 
           try {
             this.activeMoveProjectRoot = projectPath;
-            
+
             const projectName = this.foundMoveProjects.find(p => p.path === projectPath)?.name || "Unknown";
-            
+
             // Re-render the view (this will load package data and modules)
             // The button will stay in loading state until renderHtml completes
             await this.renderHtml(this.view!);
-            
+
             // After HTML is set, the DOM is replaced and button is recreated in default state
             // Send a message to keep the button in loading state
             this.view?.webview.postMessage({
               command: "move-project-loading",
               message: "Loading package..."
             });
-            
+
             // Add a delay to ensure webview has fully rendered and processed the loading message
             // This keeps the button in loading state until package is fully loaded
             await new Promise(resolve => setTimeout(resolve, 500));
-            
+
             // Send success message after render and rendering delay completes
             this.view?.webview.postMessage({
               command: "move-project-selected",
               message: `Project "${projectName}" selected successfully`
             });
-            
+
             vscode.window.showInformationMessage(
               `✅ Selected Move project: ${projectName}`
             );
@@ -1774,9 +1706,9 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
     try {
       // Get current RPC URL for the active environment
       const rpcUrl = this.availableEnvs.find(e => e.alias === this.activeEnv)?.rpc;
-      
+
       console.log(`fetchWalletBalance: activeEnv=${this.activeEnv}, rpcUrl=${rpcUrl}, activeWallet=${this.activeWallet}`);
-      
+
       if (!rpcUrl || !this.activeWallet) {
         console.log("No RPC URL or active wallet, setting balance to 0");
         this.suiBalance = "0";
@@ -1792,7 +1724,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
       console.log(`RPC balance fetch successful: ${this.suiBalance} SUI, ${this.gasCoins.length} gas coins`);
     } catch (error) {
       console.log("Failed to fetch wallet balance via RPC, falling back to CLI:", error);
-      
+
       // Fallback to CLI if RPC fails
       try {
         const gasOutput = await runCommand(`sui client gas --json`);
@@ -1829,9 +1761,9 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
     try {
       // Get current RPC URL for the active environment
       const rpcUrl = this.availableEnvs.find(e => e.alias === this.activeEnv)?.rpc;
-      
+
       console.log(`fetchCoinPortfolio: activeEnv=${this.activeEnv}, rpcUrl=${rpcUrl}, activeWallet=${this.activeWallet}`);
-      
+
       if (!rpcUrl || !this.activeWallet) {
         console.log("No RPC URL or active wallet, setting portfolio to null");
         this.coinPortfolio = null;
@@ -1856,10 +1788,173 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
     return `${shortAddr}::${s.module}::${s.name}`;
   }
 
+  extractPackageId(rootPath: string, activeEnv: string): string {
+    let pkg = "";
+
+    // 1. Try Move.lock (Legacy/Existing way)
+    try {
+      const lockPath = path.join(rootPath, "Move.lock");
+      if (fs.existsSync(lockPath)) {
+        const lockFile = fs.readFileSync(lockPath, "utf-8");
+        const lockData = toml.parse(lockFile);
+        const envSection =
+          lockData.env?.[activeEnv] || lockData.env?.default || {};
+        pkg =
+          envSection["latest-published-id"] ||
+          envSection["original-published-id"] ||
+          "";
+      }
+    } catch (e) {
+      console.error("Error reading Move.lock:", e);
+    }
+
+    if (pkg) return pkg;
+
+    // 2. Try Published.toml (New Sui way)
+    try {
+      const publishedPath = path.join(rootPath, "Published.toml");
+      if (fs.existsSync(publishedPath)) {
+        const publishedFile = fs.readFileSync(publishedPath, "utf-8");
+        const publishedData = toml.parse(publishedFile);
+        pkg = publishedData.published?.[activeEnv]?.["published-at"] || "";
+      }
+    } catch (e) {
+      console.error("Error reading Published.toml:", e);
+    }
+
+    if (pkg) return pkg;
+
+    // 3. Try Ephemeral Pub.<env>.toml (New Sui way for devnet/localnet)
+    try {
+      const pubPath = path.join(rootPath, `Pub.${activeEnv}.toml`);
+      if (fs.existsSync(pubPath)) {
+        const pubFile = fs.readFileSync(pubPath, "utf-8");
+        const pubData = toml.parse(pubFile);
+        // Ephemeral files use [[published]] array
+        if (Array.isArray(pubData.published)) {
+          // Find the one that matches our rootPath if possible, otherwise take latest
+          const latest = pubData.published[pubData.published.length - 1];
+          pkg = latest?.["published-at"] || "";
+        }
+      }
+    } catch (e) {
+      console.error(`Error reading Pub.${activeEnv}.toml:`, e);
+    }
+
+    if (pkg) return pkg;
+
+    // 3. Try Move.toml (Fallback to addresses)
+    try {
+      const moveTomlPath = path.join(rootPath, "Move.toml");
+      if (fs.existsSync(moveTomlPath)) {
+        const moveFile = fs.readFileSync(moveTomlPath, "utf-8");
+        const moveData = toml.parse(moveFile);
+        const pkgName = moveData.package?.name;
+        if (pkgName && moveData.addresses?.[pkgName]) {
+          const addr = moveData.addresses[pkgName];
+          if (addr && addr !== "0x0") {
+            pkg = addr;
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Error reading Move.toml:", e);
+    }
+
+    return pkg;
+  }
+
+  extractUpgradeCap(rootPath: string, activeEnv: string, pkgId: string): string {
+    let upgradeCap = "";
+
+    // 1. Try Published.toml (New Sui way)
+    try {
+      const publishedPath = path.join(rootPath, "Published.toml");
+      if (fs.existsSync(publishedPath)) {
+        const publishedFile = fs.readFileSync(publishedPath, "utf-8");
+        const publishedData = toml.parse(publishedFile);
+        const envData = publishedData.published?.[activeEnv];
+        if (envData?.["published-at"] === pkgId || !pkgId) {
+          upgradeCap = envData?.["upgrade-capability"] || "";
+        }
+      }
+    } catch (e) {
+      console.error("Error reading Published.toml for upgrade cap:", e);
+    }
+
+    if (upgradeCap) return upgradeCap;
+
+    // 2. Try Ephemeral Pub.<env>.toml
+    try {
+      const pubPath = path.join(rootPath, `Pub.${activeEnv}.toml`);
+      if (fs.existsSync(pubPath)) {
+        const pubFile = fs.readFileSync(pubPath, "utf-8");
+        const pubData = toml.parse(pubFile);
+        if (Array.isArray(pubData.published)) {
+          const latest = pubData.published[pubData.published.length - 1];
+          if (latest?.["published-at"] === pkgId || !pkgId) {
+            upgradeCap = latest?.["upgrade-cap"] || "";
+          }
+        }
+      }
+    } catch (e) {
+      console.error(`Error reading Pub.${activeEnv}.toml for upgrade cap:`, e);
+    }
+
+    return upgradeCap;
+  }
+
+  async getChainIdentifier(): Promise<string> {
+    try {
+      const output = await runCommand(`sui client chain-identifier`);
+      return output.trim();
+    } catch (e) {
+      console.error("Failed to get chain identifier:", e);
+      return "";
+    }
+  }
+
+  private surgicalUpdateToml(content: string, section: string, key: string, value: string, force: boolean = false): { content: string, changed: boolean } {
+    const sectionHeader = `[${section}]`;
+    const keyRegex = new RegExp(`^(\\s*${key}\\s*=\\s*)"[^"]*"`, "m");
+    let newContent = content;
+    let changed = false;
+
+    const sectionIndex = content.indexOf(sectionHeader);
+
+    if (sectionIndex !== -1) {
+      let sectionEnd = content.indexOf("[", sectionIndex + sectionHeader.length);
+      if (sectionEnd === -1) sectionEnd = content.length;
+
+      const sectionContent = content.substring(sectionIndex, sectionEnd);
+
+      if (keyRegex.test(sectionContent)) {
+        const match = sectionContent.match(keyRegex);
+        if (match && !match[0].includes(`"${value}"`)) {
+          const updatedSectionContent = sectionContent.replace(keyRegex, `$1"${value}"`);
+          newContent = content.substring(0, sectionIndex) + updatedSectionContent + content.substring(sectionEnd);
+          changed = true;
+        }
+      } else {
+        // Key doesn't exist in section, add it right after section header
+        const insertionPoint = sectionIndex + sectionHeader.length;
+        const linePrefix = content.substring(0, insertionPoint).endsWith("\n") ? "" : "\n";
+        newContent = content.substring(0, insertionPoint) + `${linePrefix}${key} = "${value}"\n` + content.substring(insertionPoint);
+        changed = true;
+      }
+    } else if (force) {
+      // Section doesn't exist, append it (only if forced)
+      newContent = content.trimEnd() + `\n\n[${section}]\n${key} = "${value}"\n`;
+      changed = true;
+    }
+
+    return { content: newContent, changed };
+  }
+
   async renderHtml(view: vscode.WebviewView) {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     const rootPath = workspaceFolder?.uri.fsPath || "";
-    
+
     // Use active Move project root if set, otherwise check current workspace root
     const activeProjectRoot = this.activeMoveProjectRoot || rootPath;
     const isMoveProject = fs.existsSync(path.join(activeProjectRoot, "Move.toml"));
@@ -1890,46 +1985,18 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
     await this.refreshWallets();
     await this.fetchCoinPortfolio();
 
-    try {
-      const lockFile = fs.readFileSync(
-        path.join(activeProjectRoot, "Move.lock"),
-        "utf-8"
-      );
-      const lockData = toml.parse(lockFile);
-
-      const envSection =
-        lockData.env?.[this.activeEnv] || lockData.env?.default || {};
-
-      pkg =
-        envSection["latest-published-id"] ||
-        envSection["original-published-id"] ||
-        "";
-    } catch {
-      pkg = "";
-    }
+    pkg = this.extractPackageId(activeProjectRoot, this.activeEnv);
 
     let upgradeCapInfo: { upgradeCap: string; packageId: string } | null = null;
-    try {
-      const upgradeTomlPath = path.join(activeProjectRoot, "upgrade.toml");
-      if (fs.existsSync(upgradeTomlPath)) {
-        const content = fs.readFileSync(upgradeTomlPath, "utf-8");
-        const parsed = toml.parse(content);
-        const upgradeCap =
-          parsed.upgrade?.upgrade_cap || parsed.upgrade?.upgradeCap;
-        const packageId =
-          parsed.upgrade?.package_id || parsed.upgrade?.packageId;
-        if (packageId === pkg && upgradeCap) {
-          upgradeCapInfo = { upgradeCap, packageId };
-        }
-      }
-    } catch {
-      upgradeCapInfo = null;
+    const upgradeCap = this.extractUpgradeCap(activeProjectRoot, this.activeEnv, pkg);
+    if (upgradeCap && pkg) {
+      upgradeCapInfo = { upgradeCap, packageId: pkg };
     }
 
     // Get RPC URL for current environment
-    const rpcUrl = this.availableEnvs.find(e => e.alias === this.activeEnv)?.rpc || 
-                   this.defaultEnvs.find(e => e.alias === this.activeEnv)?.rpc ||
-                   "https://fullnode.testnet.sui.io:443";
+    const rpcUrl = this.availableEnvs.find(e => e.alias === this.activeEnv)?.rpc ||
+      this.defaultEnvs.find(e => e.alias === this.activeEnv)?.rpc ||
+      "https://fullnode.testnet.sui.io:443";
 
     try {
       if (pkg) {
@@ -2016,4 +2083,4 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
   }
 }
 
-export function deactivate() {}
+export function deactivate() { }
