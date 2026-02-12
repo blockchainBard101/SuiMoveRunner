@@ -12,8 +12,10 @@ import {
   generateEnvironmentSection,
   generateWalletSection,
   generateImportWalletSection,
+  generateMoveProjectSelectionSection,
   generateCreatePackageSection,
   generateMoveProjectSections,
+  generateCoinPortfolioSection,
 } from './webview/templates';
 
 export { GasCoin } from './webview/types';
@@ -37,6 +39,7 @@ export function getWebviewContent(params: WebviewParams): string {
     suiVersion = "Unknown",
     latestSuiVersion = "Unknown",
     isSuiOutdated = false,
+    coinPortfolio = null,
   } = params;
 
   // Generate the script with proper variable substitution
@@ -62,6 +65,7 @@ export function getWebviewContent(params: WebviewParams): string {
   ${generateEnvironmentSection(availableEnvs, activeEnv)}
   ${generateWalletSection(params)}
   ${generateImportWalletSection()}
+  ${generateMoveProjectSelectionSection(params)}
   ${generateCreatePackageSection(isMoveProject)}
   ${generateMoveProjectSections(params)}
 

@@ -24,6 +24,12 @@ export interface ArgsMapping {
   typeParams: string[];
 }
 
+export interface MoveProject {
+  path: string;
+  name: string;
+  relativePath: string;
+}
+
 export interface WebviewParams {
   activeEnv: string;
   availableEnvs: Environment[];
@@ -42,11 +48,46 @@ export interface WebviewParams {
   suiVersion?: string;
   latestSuiVersion?: string;
   isSuiOutdated?: boolean;
+  coinPortfolio?: CoinPortfolio | null;
+  foundMoveProjects?: MoveProject[];
+  activeMoveProjectRoot?: string;
 }
 
 export interface ArgumentPlaceholder {
   placeholder: string;
   defaultValue: string;
   readonly?: boolean;
+}
+
+// Coin Portfolio Types
+export interface CoinBalance {
+  coinType: string;
+  coinObjectCount: number;
+  totalBalance: string;
+  lockedBalance: string;
+}
+
+export interface CoinObject {
+  coinType: string;
+  coinObjectId: string;
+  version: string;
+  digest: string;
+  balance: string;
+  previousTransaction: string;
+}
+
+export interface CoinMetadata {
+  decimals: number;
+  name: string;
+  symbol: string;
+  description: string;
+  iconUrl: string | null;
+  id: string | null;
+}
+
+export interface CoinPortfolio {
+  balances: CoinBalance[];
+  coinObjects: Record<string, CoinObject[]>; // Grouped by coin type
+  metadata: Record<string, CoinMetadata>; // Metadata by coin type
 }
 

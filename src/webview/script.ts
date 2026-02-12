@@ -4,6 +4,50 @@ export const webviewScript = `
   const vscode = acquireVsCodeApi();
   const argsMapping = \${JSON.stringify(argsMapping)};
 
+  // Event delegation for selectMoveProjectBtn (works even when button is recreated)
+  document.addEventListener('click', function(e) {
+    const target = e.target;
+    // Handle clicks on button or its children
+    let button = null;
+    if (target.id === 'selectMoveProjectBtn') {
+      button = target;
+    } else if (target.closest) {
+      button = target.closest('#selectMoveProjectBtn');
+    } else {
+      // Fallback: walk up the parent chain
+      let el = target;
+      while (el && el !== document) {
+        if (el.id === 'selectMoveProjectBtn') {
+          button = el;
+          break;
+        }
+        el = el.parentElement;
+      }
+    }
+    
+    if (button && !button.disabled) {
+      const select = document.getElementById('moveProjectSelect');
+      if (select && select.value) {
+        // Show loading state on button
+        button.disabled = true;
+        button.textContent = '⏳ Selecting...';
+        button.classList.add('btn-disabled');
+        button.classList.remove('btn-primary');
+        
+        // Disable the select dropdown too
+        select.disabled = true;
+        
+        // Don't modify status text here - renderHtml will set it correctly
+        // The button loading state is sufficient feedback
+        
+        vscode.postMessage({ 
+          command: 'select-move-project', 
+          projectPath: select.value 
+        });
+      }
+    }
+  });
+
   // Gas coins functionality
   function toggleGasCoins() {
     const section = document.getElementById('gasCoinsSection');
@@ -22,21 +66,18 @@ export const webviewScript = `
   }
 
   function toggleImportWallet() {
-    const section = document.getElementById('importWalletSection');
     const container = document.getElementById('importWalletContainer');
-    const toggle = section ? section.querySelector('.gas-coins-toggle') : null;
+    const toggle = document.querySelector('.import-wallet-toggle');
     if (!container || !toggle) return;
 
     if (container.style.display === 'none') {
       container.style.display = 'block';
       toggle.textContent = '▲ Hide';
-      section.classList.remove('collapsed');
       // Re-validate on open to enable/disable button properly
       try { validateImportForm(); } catch {}
     } else {
       container.style.display = 'none';
       toggle.textContent = '▼ Show';
-      section.classList.add('collapsed');
     }
   }
 
@@ -71,14 +112,28 @@ export const webviewScript = `
   }
 
   function sendMergeCoin() {
-    const primary = (document.getElementById('primaryCoinSelect') || { value: '' }).value;
-    const toMerge = (document.getElementById('coinToMergeSelect') || { value: '' }).value;
+    const primarySelect = document.getElementById('primaryCoinSelect');
+    const toMergeSelect = document.getElementById('coinToMergeSelect');
+    if (!primarySelect || !toMergeSelect) {
+      setStatusMessage('Coin selects not found');
+      return;
+    }
+    const primary = primarySelect.value;
+    const toMerge = toMergeSelect.value;
     if (!primary || !toMerge) {
       setStatusMessage('Select both coins');
       return;
     }
     if (primary === toMerge) {
       setStatusMessage('Coins must be different');
+      return;
+    }
+    const primaryOption = primarySelect.options[primarySelect.selectedIndex];
+    const toMergeOption = toMergeSelect.options[toMergeSelect.selectedIndex];
+    const primaryType = primaryOption ? primaryOption.getAttribute('data-coin-type') : null;
+    const toMergeType = toMergeOption ? toMergeOption.getAttribute('data-coin-type') : null;
+    if (primaryType && toMergeType && primaryType !== toMergeType) {
+      setStatusMessage('Coins must be of the same type');
       return;
     }
     setStatusMessage('Merging coins...');
@@ -122,23 +177,30 @@ export const webviewScript = `
     vscode.postMessage(payload);
   }
 
-  function sendTransferSui() {
-    const coinId = (document.getElementById('transferSuiCoinSelect') || { value: '' }).value;
+  function sendTransferCoin() {
+    const coinSelect = document.getElementById('transferCoinSelect');
+    if (!coinSelect) {
+      setStatusMessage('Coin select not found');
+      return;
+    }
+    const coinId = coinSelect.value;
+    const selectedOption = coinSelect.options[coinSelect.selectedIndex];
+    const coinType = selectedOption ? selectedOption.getAttribute('data-coin-type') : null;
     const to = (document.getElementById('transferTo') || { value: '' }).value.trim();
     const amountStr = (document.getElementById('transferAmount') || { value: '' }).value.trim();
     if (!coinId) {
-      setStatusMessage('Select a SUI coin to transfer');
+      setStatusMessage('Select a coin to transfer');
       return;
     }
     if (!to) {
       setStatusMessage('Enter a recipient');
       return;
     }
-    const payload = { command: 'transfer-sui', coinId, to };
+    const payload = { command: 'transfer-coin', coinId, coinType: coinType || '0x2::sui::SUI', to };
     if (amountStr) {
       payload.amount = amountStr;
     }
-    setStatusMessage('Transferring SUI...');
+    setStatusMessage('Transferring coin...');
     vscode.postMessage(payload);
   }
 
@@ -217,46 +279,76 @@ export const webviewScript = `
   }
 
   function validateMergeForm() {
-    const primary = (document.getElementById('primaryCoinSelect') || { value: '' }).value;
-    const toMerge = (document.getElementById('coinToMergeSelect') || { value: '' }).value;
-    const valid = Boolean(primary && toMerge && primary !== toMerge);
+    const primarySelect = document.getElementById('primaryCoinSelect');
+    const toMergeSelect = document.getElementById('coinToMergeSelect');
+    if (!primarySelect || !toMergeSelect) {
+      return;
+    }
+    const primary = primarySelect.value;
+    const toMerge = toMergeSelect.value;
+    let valid = Boolean(primary && toMerge && primary !== toMerge);
+    
+    // Check if coins are of the same type
+    if (valid) {
+      const primaryOption = primarySelect.options[primarySelect.selectedIndex];
+      const toMergeOption = toMergeSelect.options[toMergeSelect.selectedIndex];
+      const primaryType = primaryOption ? primaryOption.getAttribute('data-coin-type') : null;
+      const toMergeType = toMergeOption ? toMergeOption.getAttribute('data-coin-type') : null;
+      if (primaryType && toMergeType && primaryType !== toMergeType) {
+        valid = false;
+      }
+    }
+    
     const btn = document.getElementById('mergeCoinsBtn');
     setButtonEnabled(btn, valid);
   }
 
   function validateSplitForm() {
-    const coinId = (document.getElementById('splitCoinSelect') || { value: '' }).value;
+    const coinIdEl = document.getElementById('splitCoinSelect');
+    const coinId = coinIdEl ? coinIdEl.value : '';
+    
+    // If no coin selected (or no coins available), invalid
+    if (!coinId) {
+      setButtonEnabled(document.getElementById('splitCoinBtn'), false);
+      return;
+    }
+
     const amountsStr = (document.getElementById('splitAmounts') || { value: '' }).value.trim();
     const countStr = (document.getElementById('splitCount') || { value: '' }).value.trim();
-    const hasAmounts = amountsStr.length > 0;
-    const hasCount = countStr.length > 0;
+    
+    let valid = false;
 
-    let amountsValid = false;
-    if (hasAmounts) {
-      const parts = amountsStr.split(',').map(v => v.trim()).filter(Boolean);
-      amountsValid = parts.length > 0 && parts.every(v => Number.isFinite(Number(v)) && Number(v) >= 0 && /^\d+$/.test(v));
-    }
-
-    let countValid = false;
-    if (hasCount) {
+    // Validate amounts: comma-separated numbers
+    if (amountsStr.length > 0) {
+      // Allow trailing commas and loose spacing
+      const parts = amountsStr.split(',').map(v => v.trim()).filter(v => v.length > 0);
+      if (parts.length > 0) {
+        // Just check if they look like numbers (positive integers generally, but let backend handle strictness)
+        const allNumbers = parts.every(v => !isNaN(Number(v)) && Number(v) > 0);
+        if (allNumbers) valid = true;
+      }
+    } 
+    // Validate count: positive integer
+    else if (countStr.length > 0) {
       const n = Number(countStr);
-      countValid = Number.isFinite(n) && Number.isInteger(n) && n >= 1;
+      if (Number.isFinite(n) && n >= 1) {
+        valid = true;
+      }
     }
 
-    const valid = Boolean(coinId) && (amountsValid || countValid);
     const btn = document.getElementById('splitCoinBtn');
     setButtonEnabled(btn, valid);
   }
 
   function validateTransferForm() {
-    const coinId = (document.getElementById('transferSuiCoinSelect') || { value: '' }).value;
+    const coinId = (document.getElementById('transferCoinSelect') || { value: '' }).value;
     const to = (document.getElementById('transferTo') || { value: '' }).value.trim();
     const amountStr = (document.getElementById('transferAmount') || { value: '' }).value.trim();
     let valid = Boolean(coinId && to);
     if (amountStr) {
       valid = valid && /^\d+$/.test(amountStr);
     }
-    const btn = document.getElementById('transferSuiBtn');
+    const btn = document.getElementById('transferCoinBtn');
     setButtonEnabled(btn, valid);
   }
 
@@ -273,11 +365,7 @@ export const webviewScript = `
   }
 
   function isInputStringValid(s) {
-    if (!s) return false;
-    const isBech32 = s.startsWith('suiprivkey');
-    if (isBech32) return true;
-    const words = s.trim().split(/\s+/);
-    return [12,15,18,21,24].includes(words.length);
+    return s && s.trim().length > 0;
   }
 
   function validateImportForm() {
@@ -345,6 +433,11 @@ export const webviewScript = `
     const funcName = document.getElementById('testFuncName').value.trim();
     setStatusMessage('Running tests...');
     vscode.postMessage({ command: 'test', functionName: funcName });
+  }
+
+  function sendReset() {
+    setStatusMessage('Resetting deployment...');
+    vscode.postMessage({ command: 'reset-deployment' });
   }
 
   function extractOptionType(type) {
@@ -647,7 +740,7 @@ export const webviewScript = `
 
   // Wallet address copy
   document.getElementById('walletAddress')?.addEventListener('click', () => {
-    const walletAddress = '\${activeWallet}';
+    const walletAddress = document.getElementById('walletAddress')?.getAttribute('data-full-address') || '';
     navigator.clipboard.writeText(walletAddress).then(() => {
       setStatusMessage('Address copied!');
       vscode.postMessage({ command: 'showCopyNotification' });
@@ -658,6 +751,12 @@ export const webviewScript = `
   document.getElementById('createAddressBtn')?.addEventListener('click', () => {
     setStatusMessage('Creating address...');
     vscode.postMessage({ command: 'create-address' });
+  });
+
+  // Export wallet button
+  document.getElementById('exportWalletBtn')?.addEventListener('click', () => {
+    setStatusMessage('Exporting wallet...');
+    vscode.postMessage({ command: 'export-wallet' });
   });
 
   // Refresh button
@@ -698,10 +797,10 @@ export const webviewScript = `
         sendSplitCoin();
       });
     }
-    const transferBtn = document.getElementById('transferSuiBtn');
+    const transferBtn = document.getElementById('transferCoinBtn');
     if (transferBtn) {
       transferBtn.addEventListener('click', () => {
-        sendTransferSui();
+        sendTransferCoin();
       });
     }
 
@@ -711,6 +810,23 @@ export const webviewScript = `
         sendImportWallet();
       });
     }
+
+    // Move project selection functionality
+    const scanMoveProjectsBtn = document.getElementById('scanMoveProjectsBtn');
+    if (scanMoveProjectsBtn) {
+      scanMoveProjectsBtn.addEventListener('click', () => {
+        vscode.postMessage({ command: 'scan-move-projects' });
+      });
+    }
+
+    const rescanMoveProjectsBtn = document.getElementById('rescanMoveProjectsBtn');
+    if (rescanMoveProjectsBtn) {
+      rescanMoveProjectsBtn.addEventListener('click', () => {
+        vscode.postMessage({ command: 'scan-move-projects' });
+      });
+    }
+
+    // Note: selectMoveProjectBtn event listener is set up via event delegation at the top level
 
     // Attach validation listeners
     document.getElementById('primaryCoinSelect')?.addEventListener('change', validateMergeForm);
@@ -722,7 +838,7 @@ export const webviewScript = `
     document.getElementById('splitCount')?.addEventListener('input', validateSplitForm);
     document.getElementById('splitCount')?.addEventListener('keyup', validateSplitForm);
 
-    document.getElementById('transferSuiCoinSelect')?.addEventListener('change', validateTransferForm);
+    document.getElementById('transferCoinSelect')?.addEventListener('change', validateTransferForm);
     document.getElementById('transferTo')?.addEventListener('input', validateTransferForm);
     document.getElementById('transferTo')?.addEventListener('keyup', validateTransferForm);
     document.getElementById('transferAmount')?.addEventListener('input', validateTransferForm);
@@ -746,6 +862,30 @@ export const webviewScript = `
     validateImportForm();
   });
 
+  // Helper function to reset select project button state
+  function resetSelectProjectButton() {
+    const selectMoveProjectBtn = document.getElementById('selectMoveProjectBtn');
+    const select = document.getElementById('moveProjectSelect');
+    const activeStatus = document.getElementById('activeMoveProjectStatus');
+    
+    if (selectMoveProjectBtn) {
+      selectMoveProjectBtn.disabled = false;
+      selectMoveProjectBtn.textContent = '✅ Select Project';
+      selectMoveProjectBtn.classList.remove('btn-disabled');
+      selectMoveProjectBtn.classList.add('btn-primary');
+    }
+    
+    if (select) {
+      select.disabled = false;
+    }
+    
+    // Reset active status (will be updated on next render, but clear loading state)
+    if (activeStatus) {
+      // Keep it visible but reset color - the actual project name will come from render
+      activeStatus.style.color = 'var(--vscode-inputValidation-infoForeground)';
+    }
+  }
+
   // Listen for extension messages
   window.addEventListener('message', event => {
     const message = event.data;
@@ -759,15 +899,91 @@ export const webviewScript = `
         break;
       case 'set-status':
         setStatusMessage(message.message);
+        // Reset button if status is cleared (indicates completion or error)
+        if (!message.message && document.getElementById('selectMoveProjectBtn')) {
+          resetSelectProjectButton();
+        }
         break;
       case 'gas-coin-copied':
         setStatusMessage('📋 Gas coin ID copied to clipboard!');
         // Auto-clear the message after 2 seconds
         setTimeout(() => setStatusMessage(''), 2000);
         break;
+      case 'move-project-loading':
+        // Re-apply loading state after HTML is replaced
+        // Note: Don't change status text - it already has the correct project name from renderHtml
+        const loadingBtn = document.getElementById('selectMoveProjectBtn');
+        const loadingSelect = document.getElementById('moveProjectSelect');
+        
+        if (loadingBtn) {
+          loadingBtn.disabled = true;
+          loadingBtn.textContent = '⏳ Selecting...';
+          loadingBtn.classList.add('btn-disabled');
+          loadingBtn.classList.remove('btn-primary');
+        }
+        
+        if (loadingSelect) {
+          loadingSelect.disabled = true;
+        }
+        
+        // Don't modify the status - it already shows the correct project name
+        // The button loading state is sufficient feedback
+        break;
+      case 'move-project-selected':
+        resetSelectProjectButton();
+        setStatusMessage(message.message || 'Project selected successfully');
+        break;
+      case 'move-project-error':
+        resetSelectProjectButton();
+        setStatusMessage(message.message || 'Failed to select project');
+        break;
       default:
         break;
     }
   });
+
+  // Coin Portfolio Functions
+  function toggleCoinObjects(coinType) {
+    const container = document.getElementById('coin-objects-' + coinType);
+    const toggle = container.previousElementSibling.querySelector('.coin-objects-toggle');
+    
+    if (container.style.display === 'none') {
+      container.style.display = 'block';
+      toggle.textContent = '▲ Hide';
+    } else {
+      container.style.display = 'none';
+      toggle.textContent = '▼ Show';
+    }
+  }
+
+  function copyCoinObjectId(coinObjectId) {
+    navigator.clipboard.writeText(coinObjectId).then(() => {
+      setStatusMessage('Coin object ID copied!');
+      setTimeout(() => setStatusMessage(''), 2000);
+    }).catch(() => {
+      setStatusMessage('Failed to copy coin object ID');
+    });
+  }
+
+  function copyCoinType(coinType) {
+    navigator.clipboard.writeText(coinType).then(() => {
+      setStatusMessage('Coin type copied!');
+      setTimeout(() => setStatusMessage(''), 2000);
+    }).catch(() => {
+      setStatusMessage('Failed to copy coin type');
+    });
+  }
+
+  function toggleCoinPortfolio() {
+    const container = document.getElementById('coinPortfolioContainer');
+    const toggle = document.querySelector('.coin-portfolio-toggle');
+    if (container.style.display === 'none') {
+      container.style.display = 'block';
+      toggle.textContent = '▲ Hide';
+    } else {
+      container.style.display = 'none';
+      toggle.textContent = '▼ Show';
+    }
+  }
 `;
 
