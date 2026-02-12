@@ -1294,6 +1294,67 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
           break;
         }
 
+        case "import-wallet": {
+          const { inputString, keyScheme, derivationPath, alias } = message;
+          if (!inputString) {
+            vscode.window.showErrorMessage("Import input required");
+            return;
+          }
+
+          this.view?.webview.postMessage({
+            command: "set-status",
+            message: "Importing wallet...",
+          });
+
+          // Construct command
+          // sui keytool import [OPTIONS] <INPUT_STRING> <KEY_SCHEME> [DERIVATION_PATH]
+          let cmd = `sui keytool import "${inputString}" ${keyScheme}`;
+
+          if (derivationPath) {
+            cmd += ` "${derivationPath}"`;
+          }
+
+          if (alias) {
+            cmd += ` --alias ${alias}`;
+          }
+
+          cmd += " --json"; // Request JSON output
+
+          try {
+            const output = await runCommand(cmd);
+            // Try to parse JSON output to get the address/alias
+            // Note: sui keytool import sometimes outputs text even with --json depending on version/errors
+
+            // It might output multiple keys if json
+            // Example output: [{"alias":"...","suiAddress":"..."}] or object
+
+            console.log("Import Output:", output);
+
+            await this.refreshWallets();
+
+            vscode.window.showInformationMessage(
+              `✅ Wallet imported successfully!`
+            );
+
+            this.view?.webview.postMessage({
+              command: "set-status",
+              message: "Wallet imported",
+            });
+            this.renderHtml(this.view!);
+
+          } catch (err) {
+            console.error("Import failed:", err);
+            vscode.window.showErrorMessage(
+              `❌ Failed to import wallet: ${err}`
+            );
+            this.view?.webview.postMessage({
+              command: "set-status",
+              message: "Import failed",
+            });
+          }
+          break;
+        }
+
         case "refresh": {
           if (!this.view) {
             break;
@@ -1539,7 +1600,7 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             transferCmd += ` --gas-budget 10000000`;
           } else {
             // For non-SUI coins, use the generic transfer command
-            transferCmd = `sui client transfer --to ${to} --coin-object-id ${coinId}`;
+            transferCmd = `sui client transfer --to ${to} --object-id ${coinId}`;
             if (amount && amount.trim().length > 0) {
               transferCmd += ` --amount ${amount.trim()}`;
             }
@@ -1693,6 +1754,129 @@ class SuiRunnerSidebar implements vscode.WebviewViewProvider {
             this.view?.webview.postMessage({
               command: "move-project-error",
               message: `Failed to select project: ${err}`
+            });
+          }
+          break;
+        }
+
+        case "reset-deployment": {
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          if (!workspaceFolder) {
+            vscode.window.showErrorMessage("No workspace open");
+            return;
+          }
+          const rootPath = this.activeMoveProjectRoot || workspaceFolder.uri.fsPath;
+
+          // WARNING confirmation
+          const warningAction = await vscode.window.showWarningMessage(
+            "⚠️ Danger Zone: Reset Deployment\n\n" +
+            "This will DELETE 'Move.lock' and 'Publish.toml', and remove published addresses from 'Move.toml'.\n\n" +
+            "Are you sure you want to proceed?",
+            { modal: true },
+            "Yes, Reset Deployment",
+            "Cancel"
+          );
+
+          if (warningAction !== "Yes, Reset Deployment") {
+            this.view?.webview.postMessage({ command: "set-status", message: "" });
+            break;
+          }
+
+          this.view?.webview.postMessage({
+            command: "set-status",
+            message: "Resetting deployment files...",
+          });
+
+          try {
+            // 1. Delete Move.lock
+            const moveLockPath = path.join(rootPath, "Move.lock");
+            if (fs.existsSync(moveLockPath)) {
+              fs.unlinkSync(moveLockPath);
+              console.log(`Deleted ${moveLockPath}`);
+            }
+
+            // 2. Delete Published.toml (and Publish.toml just in case)
+            const publishedTomlPath = path.join(rootPath, "Published.toml");
+            if (fs.existsSync(publishedTomlPath)) {
+              fs.unlinkSync(publishedTomlPath);
+              console.log(`Deleted ${publishedTomlPath}`);
+            }
+            const publishTomlPath = path.join(rootPath, "Publish.toml"); // Check for typo variant
+            if (fs.existsSync(publishTomlPath)) {
+              fs.unlinkSync(publishTomlPath);
+              console.log(`Deleted ${publishTomlPath}`);
+            }
+
+            // 3. Delete Ephemeral Pub.<env>.toml
+            // We should try to delete all Pub.*.toml files or at least for known envs
+            // For safety, let's just target the active env and common ones
+            const envsToClean = [this.activeEnv, "devnet", "localnet", "testnet", "mainnet"];
+            for (const env of envsToClean) {
+              const pubPath = path.join(rootPath, `Pub.${env}.toml`);
+              if (fs.existsSync(pubPath)) {
+                fs.unlinkSync(pubPath);
+                console.log(`Deleted ${pubPath}`);
+              }
+            }
+
+
+            // 4. Update Move.toml (Surgical removal)
+            const moveTomlPath = path.join(rootPath, "Move.toml");
+            if (fs.existsSync(moveTomlPath)) {
+              let content = fs.readFileSync(moveTomlPath, "utf-8");
+              let changed = false;
+
+              // Remove [addresses] entries
+              // Strategy: specific removal of addresses that look like deployment addresses?
+              // Or just remove the package address if we know the package name.
+              const moveData = toml.parse(content);
+              const pkgName = moveData.package?.name;
+
+
+              // Helper to remove a key from a section
+              const removeKey = (section: string, key: string) => {
+                const sectionRegex = new RegExp(`\\[${section}\\][\\s\\S]*?(?=\\[|$)`);
+                const match = content.match(sectionRegex);
+                if (match) {
+                  const sectionContent = match[0];
+                  const keyRegex = new RegExp(`^\\s*${key}\\s*=.*$`, "m");
+                  if (keyRegex.test(sectionContent)) {
+                    const newSectionContent = sectionContent.replace(keyRegex, "");
+                    content = content.replace(sectionContent, newSectionContent);
+                    changed = true;
+                  }
+                }
+              };
+
+              if (pkgName) {
+                // Remove package address from [addresses]
+                removeKey("addresses", pkgName);
+              }
+
+              // Remove published-at from [package]
+              removeKey("package", "published-at");
+
+              if (changed) {
+                // Clean up empty lines potentially left behind
+                content = content.replace(/^\s*[\r\n]/gm, "");
+                fs.writeFileSync(moveTomlPath, content);
+                console.log("Updated Move.toml");
+              }
+            }
+
+            await this.refreshWallets();
+            this.renderHtml(this.view!); // Re-render to update UI state
+            vscode.window.showInformationMessage("✅ Deployment state has been reset.");
+            this.view?.webview.postMessage({
+              command: "set-status",
+              message: "Reset complete.",
+            });
+
+          } catch (err) {
+            vscode.window.showErrorMessage(`❌ Failed to reset deployment: ${err}`);
+            this.view?.webview.postMessage({
+              command: "set-status",
+              message: "Reset failed.",
             });
           }
           break;

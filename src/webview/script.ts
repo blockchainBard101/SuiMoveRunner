@@ -304,25 +304,38 @@ export const webviewScript = `
   }
 
   function validateSplitForm() {
-    const coinId = (document.getElementById('splitCoinSelect') || { value: '' }).value;
+    const coinIdEl = document.getElementById('splitCoinSelect');
+    const coinId = coinIdEl ? coinIdEl.value : '';
+    
+    // If no coin selected (or no coins available), invalid
+    if (!coinId) {
+      setButtonEnabled(document.getElementById('splitCoinBtn'), false);
+      return;
+    }
+
     const amountsStr = (document.getElementById('splitAmounts') || { value: '' }).value.trim();
     const countStr = (document.getElementById('splitCount') || { value: '' }).value.trim();
-    const hasAmounts = amountsStr.length > 0;
-    const hasCount = countStr.length > 0;
+    
+    let valid = false;
 
-    let amountsValid = false;
-    if (hasAmounts) {
-      const parts = amountsStr.split(',').map(v => v.trim()).filter(Boolean);
-      amountsValid = parts.length > 0 && parts.every(v => Number.isFinite(Number(v)) && Number(v) >= 0 && /^\d+$/.test(v));
-    }
-
-    let countValid = false;
-    if (hasCount) {
+    // Validate amounts: comma-separated numbers
+    if (amountsStr.length > 0) {
+      // Allow trailing commas and loose spacing
+      const parts = amountsStr.split(',').map(v => v.trim()).filter(v => v.length > 0);
+      if (parts.length > 0) {
+        // Just check if they look like numbers (positive integers generally, but let backend handle strictness)
+        const allNumbers = parts.every(v => !isNaN(Number(v)) && Number(v) > 0);
+        if (allNumbers) valid = true;
+      }
+    } 
+    // Validate count: positive integer
+    else if (countStr.length > 0) {
       const n = Number(countStr);
-      countValid = Number.isFinite(n) && Number.isInteger(n) && n >= 1;
+      if (Number.isFinite(n) && n >= 1) {
+        valid = true;
+      }
     }
 
-    const valid = Boolean(coinId) && (amountsValid || countValid);
     const btn = document.getElementById('splitCoinBtn');
     setButtonEnabled(btn, valid);
   }
@@ -352,11 +365,7 @@ export const webviewScript = `
   }
 
   function isInputStringValid(s) {
-    if (!s) return false;
-    const isBech32 = s.startsWith('suiprivkey');
-    if (isBech32) return true;
-    const words = s.trim().split(/\s+/);
-    return [12,15,18,21,24].includes(words.length);
+    return s && s.trim().length > 0;
   }
 
   function validateImportForm() {
@@ -424,6 +433,11 @@ export const webviewScript = `
     const funcName = document.getElementById('testFuncName').value.trim();
     setStatusMessage('Running tests...');
     vscode.postMessage({ command: 'test', functionName: funcName });
+  }
+
+  function sendReset() {
+    setStatusMessage('Resetting deployment...');
+    vscode.postMessage({ command: 'reset-deployment' });
   }
 
   function extractOptionType(type) {

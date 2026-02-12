@@ -19,7 +19,7 @@ export function generateStatusBar(): string {
 
 export function generateSuiVersionSection(params: WebviewParams): string {
   const { isSuiOutdated, suiVersion, latestSuiVersion } = params;
-  
+
   return `
     <div class="section" style="background-color: ${isSuiOutdated ? 'var(--vscode-inputValidation-errorBackground)' : 'var(--vscode-inputValidation-infoBackground)'}; border-color: ${isSuiOutdated ? 'var(--vscode-inputValidation-errorBorder)' : 'var(--vscode-inputValidation-infoBorder)'};">
       <div>
@@ -29,10 +29,10 @@ export function generateSuiVersionSection(params: WebviewParams): string {
         <div style="font-size: 11px; color: ${isSuiOutdated ? 'var(--vscode-inputValidation-errorForeground)' : 'var(--vscode-inputValidation-infoForeground)'}; margin-bottom: 8px;">
           Current: ${suiVersion} | Latest: ${latestSuiVersion}
         </div>
-        ${isSuiOutdated ? 
-          '<button id="updateSuiBtn" class="btn-primary" style="background-color: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer;">Update Sui CLI</button>' :
-          '<div style="font-size: 11px; color: var(--vscode-inputValidation-infoForeground); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;"><span>✓</span> <span>All up to date!</span></div>'
-        }
+        ${isSuiOutdated ?
+      '<button id="updateSuiBtn" class="btn-primary" style="background-color: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer;">Update Sui CLI</button>' :
+      '<div style="font-size: 11px; color: var(--vscode-inputValidation-infoForeground); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;"><span>✓</span> <span>All up to date!</span></div>'
+    }
       </div>
     </div>
   `;
@@ -56,7 +56,7 @@ export function generateEnvironmentDisplay(activeEnv: string): string {
 
 export function generateLocalnetSection(params: WebviewParams): string {
   const { activeEnv, localnetRunning } = params;
-  
+
   if (activeEnv === "localnet" && !localnetRunning) {
     return `
       <div class="section">
@@ -88,8 +88,7 @@ export function generateEnvironmentSection(availableEnvs: any[], activeEnv: stri
   const envOptions = availableEnvs
     .map(
       (e) =>
-        `<option value="${e.alias}" ${
-          e.alias === activeEnv ? "selected" : ""
+        `<option value="${e.alias}" ${e.alias === activeEnv ? "selected" : ""
         }>${e.alias}</option>`
     )
     .join("");
@@ -115,19 +114,18 @@ export function generateGasCoinsHtml(gasCoins: GasCoin[]): string {
       </div>
       <div class="gas-coins-container" style="display: none;">
         ${gasCoins
-          .map(
-            (coin) => `
+      .map(
+        (coin) => `
           <div class="gas-coin-item">
-            <span class="gas-coin-id" title="${
-              coin.gasCoinId
-            }" onclick="copyGasCoinId('${coin.gasCoinId}')">
+            <span class="gas-coin-id" title="${coin.gasCoinId
+          }" onclick="copyGasCoinId('${coin.gasCoinId}')">
               ${coin.gasCoinId.slice(0, 8)}...${coin.gasCoinId.slice(-8)}
             </span>
             <span class="gas-coin-balance">${coin.suiBalance} SUI</span>
           </div>
         `
-          )
-          .join("")}
+      )
+      .join("")}
       </div>
     </div>
   `;
@@ -144,17 +142,17 @@ interface CoinOption {
 // Extract all coin objects from portfolio for coin tools
 function getAllCoinObjects(coinPortfolio: CoinPortfolio | null, gasCoins: GasCoin[]): CoinOption[] {
   const coins: CoinOption[] = [];
-  
+
   // Add gas coins (SUI) first
   gasCoins.forEach(coin => {
     coins.push({
       coinObjectId: coin.gasCoinId,
       coinType: "0x2::sui::SUI",
       balance: coin.suiBalance,
-      displayName: `${coin.gasCoinId.slice(0,8)}...${coin.gasCoinId.slice(-8)} (${coin.suiBalance} SUI)`
+      displayName: `${coin.gasCoinId.slice(0, 8)}...${coin.gasCoinId.slice(-8)} (${coin.suiBalance} SUI)`
     });
   });
-  
+
   // Add all other coins from portfolio
   if (coinPortfolio) {
     Object.keys(coinPortfolio.coinObjects).forEach(coinType => {
@@ -162,12 +160,12 @@ function getAllCoinObjects(coinPortfolio: CoinPortfolio | null, gasCoins: GasCoi
       if (coinType === "0x2::sui::SUI") {
         return;
       }
-      
+
       const coinObjects = coinPortfolio.coinObjects[coinType];
       const metadata = coinPortfolio.metadata[coinType];
       const decimals = metadata?.decimals || 9;
       const symbol = metadata?.symbol || coinType.split("::").pop() || "Unknown";
-      
+
       coinObjects.forEach(coin => {
         const balanceNum = parseFloat(coin.balance);
         const displayBalance = (balanceNum / Math.pow(10, decimals)).toFixed(6);
@@ -175,18 +173,18 @@ function getAllCoinObjects(coinPortfolio: CoinPortfolio | null, gasCoins: GasCoi
           coinObjectId: coin.coinObjectId,
           coinType: coinType,
           balance: displayBalance,
-          displayName: `${coin.coinObjectId.slice(0,8)}...${coin.coinObjectId.slice(-8)} (${displayBalance} ${symbol})`
+          displayName: `${coin.coinObjectId.slice(0, 8)}...${coin.coinObjectId.slice(-8)} (${displayBalance} ${symbol})`
         });
       });
     });
   }
-  
+
   return coins;
 }
 
 export function generateCoinToolsSection(gasCoins: GasCoin[], coinPortfolio: CoinPortfolio | null): string {
   const allCoins = getAllCoinObjects(coinPortfolio, gasCoins);
-  
+
   if (allCoins.length === 0) {
     return "";
   }
@@ -218,20 +216,20 @@ function generateMergeCoinsSection(coins: CoinOption[]): string {
         <label class="input-label">Primary Coin (to keep)</label>
         <select id="primaryCoinSelect">
           ${coins
-            .map(
-              (c) => `<option value="${c.coinObjectId}" data-coin-type="${c.coinType}">${c.displayName}</option>`
-            )
-            .join("")}
+      .map(
+        (c) => `<option value="${c.coinObjectId}" data-coin-type="${c.coinType}">${c.displayName}</option>`
+      )
+      .join("")}
         </select>
       </div>
       <div class="input-group">
         <label class="input-label">Coin to Merge</label>
         <select id="coinToMergeSelect">
           ${coins
-            .map(
-              (c) => `<option value="${c.coinObjectId}" data-coin-type="${c.coinType}">${c.displayName}</option>`
-            )
-            .join("")}
+      .map(
+        (c) => `<option value="${c.coinObjectId}" data-coin-type="${c.coinType}">${c.displayName}</option>`
+      )
+      .join("")}
         </select>
       </div>
       <button id="mergeCoinsBtn" class="coin-tools-btn btn-disabled" disabled>Merge into Primary</button>
@@ -248,10 +246,10 @@ function generateSplitCoinSection(coins: CoinOption[]): string {
         <label class="input-label">Coin to Split</label>
         <select id="splitCoinSelect">
           ${coins
-            .map(
-              (c) => `<option value="${c.coinObjectId}" data-coin-type="${c.coinType}">${c.displayName}</option>`
-            )
-            .join("")}
+      .map(
+        (c) => `<option value="${c.coinObjectId}" data-coin-type="${c.coinType}">${c.displayName}</option>`
+      )
+      .join("")}
         </select>
       </div>
       <div class="input-group">
@@ -277,10 +275,10 @@ function generateTransferCoinSection(coins: CoinOption[]): string {
         <label class="input-label">Coin to Transfer</label>
         <select id="transferCoinSelect">
           ${coins
-            .map(
-              (c) => `<option value="${c.coinObjectId}" data-coin-type="${c.coinType}">${c.displayName}</option>`
-            )
-            .join("")}
+      .map(
+        (c) => `<option value="${c.coinObjectId}" data-coin-type="${c.coinType}">${c.displayName}</option>`
+      )
+      .join("")}
         </select>
       </div>
       <div class="input-group">
@@ -301,7 +299,7 @@ function generateTransferCoinSection(coins: CoinOption[]): string {
 export function generateWalletSection(params: WebviewParams): string {
   const { wallets, activeWallet, suiBalance, gasCoins, coinPortfolio } = params;
   const shortWallet = activeWallet?.slice(0, 6) + "..." + activeWallet?.slice(-4) || "";
-  
+
   return `
     <div class="wallet-section">
       <div class="wallet-header">
@@ -311,15 +309,14 @@ export function generateWalletSection(params: WebviewParams): string {
       
       <select id="walletSwitcher">
         ${wallets
-          .map(
-            (w) =>
-              `<option value="${w.address}" ${
-                w.address === activeWallet ? "selected" : ""
-              }>${w.name} - ${w.address.slice(0, 6)}...${w.address.slice(
-                -4
-              )}</option>`
-          )
-          .join("")}
+      .map(
+        (w) =>
+          `<option value="${w.address}" ${w.address === activeWallet ? "selected" : ""
+          }>${w.name} - ${w.address.slice(0, 6)}...${w.address.slice(
+            -4
+          )}</option>`
+      )
+      .join("")}
       </select>
       
       <div class="wallet-info-grid">
@@ -396,7 +393,7 @@ export function generateImportWalletSection(): string {
 
 export function generateMoveProjectSelectionSection(params: WebviewParams): string {
   const { foundMoveProjects = [], activeMoveProjectRoot, isMoveProject } = params;
-  
+
   // If no Move projects found and current directory is not a Move project, show scan option
   if (foundMoveProjects.length === 0 && !isMoveProject) {
     return `
@@ -412,15 +409,15 @@ export function generateMoveProjectSelectionSection(params: WebviewParams): stri
       </div>
     `;
   }
-  
+
   // If Move projects found, show selection UI
   if (foundMoveProjects.length > 0) {
-    const projectOptions = foundMoveProjects.map(project => 
+    const projectOptions = foundMoveProjects.map(project =>
       `<option value="${project.path}" ${project.path === activeMoveProjectRoot ? 'selected' : ''}>
         ${project.name} (${project.relativePath})
       </option>`
     ).join('');
-    
+
     return `
       <div class="section">
         <div class="section-title">📁 Move Project Selection</div>
@@ -440,7 +437,7 @@ export function generateMoveProjectSelectionSection(params: WebviewParams): stri
       </div>
     `;
   }
-  
+
   // If current directory is a Move project, show confirmation
   if (isMoveProject) {
     return `
@@ -453,7 +450,7 @@ export function generateMoveProjectSelectionSection(params: WebviewParams): stri
       </div>
     `;
   }
-  
+
   return "";
 }
 
@@ -474,7 +471,7 @@ export function generateCreatePackageSection(isMoveProject: boolean): string {
 
 export function generateMoveProjectSections(params: WebviewParams): string {
   const { isMoveProject, pkg, upgradeCapInfo, modulesHtml } = params;
-  
+
   if (!isMoveProject) {
     return "";
   }
@@ -487,9 +484,8 @@ export function generateMoveProjectSections(params: WebviewParams): string {
 
     <div class="section">
       <div class="section-title">🚀 Publish</div>
-      <button onclick="sendPublish()" class="btn-primary">${
-        pkg ? "Re-publish" : "Publish"
-      }</button>
+      <button onclick="sendPublish()" class="btn-primary">${pkg ? "Re-publish" : "Publish"
+    }</button>
     </div>
 
     ${upgradeCapInfo ? `
@@ -521,6 +517,14 @@ export function generateMoveProjectSections(params: WebviewParams): string {
       <div id="argsContainer"></div>
 
       <button onclick="sendCall()" class="btn-primary">Execute</button>
+    </div>
+
+    <div class="section" style="border-color: var(--vscode-inputValidation-errorBorder);">
+      <div class="section-title" style="color: var(--vscode-inputValidation-errorForeground);">⚠️ Danger Zone</div>
+      <button onclick="sendReset()" class="btn-primary" style="background-color: var(--vscode-inputValidation-errorBackground); border: 1px solid var(--vscode-inputValidation-errorBorder);">Reset Deployment</button>
+      <div style="font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 6px;">
+        <span style="color: var(--vscode-inputValidation-errorForeground);">Warning:</span> This will delete Move.lock, Publish.toml, and wipe deployment addresses from Move.toml.
+      </div>
     </div>
   `;
 }
@@ -566,13 +570,13 @@ export function generateCoinPortfolioSection(coinPortfolio: CoinPortfolio | null
       <div class="section-title">💰 Coin Portfolio (${coinPortfolio.balances.length} types)</div>
       <div class="coin-portfolio-container">
               ${coinPortfolio.balances.map((balance: CoinBalance) => {
-                const metadata = coinPortfolio.metadata[balance.coinType];
-                const coinObjects = coinPortfolio.coinObjects[balance.coinType] || [];
-                const decimals = metadata?.decimals || 9; // Default to 9 for SUI if no metadata
-                const displayBalance = formatBalance(balance.totalBalance, decimals);
-                const symbol = metadata?.symbol || formatCoinType(balance.coinType);
-          
-          return `
+    const metadata = coinPortfolio.metadata[balance.coinType];
+    const coinObjects = coinPortfolio.coinObjects[balance.coinType] || [];
+    const decimals = metadata?.decimals || 9; // Default to 9 for SUI if no metadata
+    const displayBalance = formatBalance(balance.totalBalance, decimals);
+    const symbol = metadata?.symbol || formatCoinType(balance.coinType);
+
+    return `
             <div class="coin-balance-item">
               <div class="coin-balance-header">
                 <div class="coin-info">
@@ -614,7 +618,7 @@ export function generateCoinPortfolioSection(coinPortfolio: CoinPortfolio | null
               ` : ""}
             </div>
           `;
-        }).join("")}
+  }).join("")}
       </div>
     </div>
   `;
