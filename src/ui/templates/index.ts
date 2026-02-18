@@ -1,4 +1,4 @@
-import { WebviewParams } from './webview/types';
+import { WebviewParams, GasCoin } from '../../types';
 import { webviewStyles } from './webview/styles';
 import { webviewScript } from './webview/script';
 import {
@@ -18,7 +18,7 @@ import {
   generateCoinPortfolioSection,
 } from './webview/templates';
 
-export { GasCoin } from './webview/types';
+// Export GasCoin included in import above
 
 export function getWebviewContent(params: WebviewParams): string {
   const {

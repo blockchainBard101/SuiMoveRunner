@@ -1,4 +1,4 @@
-import { ArgumentPlaceholder } from './types';
+// Types are implicitly handled in the string injection
 
 export const webviewScript = `
   const vscode = acquireVsCodeApi();

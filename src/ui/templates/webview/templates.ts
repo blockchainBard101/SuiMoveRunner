@@ -1,4 +1,4 @@
-import { GasCoin, WebviewParams, CoinPortfolio, CoinBalance, CoinObject, CoinMetadata } from './types';
+import { GasCoin, WebviewParams, CoinPortfolio, CoinBalance, CoinObject, CoinMetadata } from '../../../types';
 
 export function generateHeader(iconUri: string): string {
   return `
@@ -166,7 +166,7 @@ function getAllCoinObjects(coinPortfolio: CoinPortfolio | null, gasCoins: GasCoi
       const decimals = metadata?.decimals || 9;
       const symbol = metadata?.symbol || coinType.split("::").pop() || "Unknown";
 
-      coinObjects.forEach(coin => {
+      coinObjects.forEach((coin: any) => {
         const balanceNum = parseFloat(coin.balance);
         const displayBalance = (balanceNum / Math.pow(10, decimals)).toFixed(6);
         coins.push({
@@ -310,7 +310,7 @@ export function generateWalletSection(params: WebviewParams): string {
       <select id="walletSwitcher">
         ${wallets
       .map(
-        (w) =>
+        (w: any) =>
           `<option value="${w.address}" ${w.address === activeWallet ? "selected" : ""
           }>${w.name} - ${w.address.slice(0, 6)}...${w.address.slice(
             -4
@@ -412,7 +412,7 @@ export function generateMoveProjectSelectionSection(params: WebviewParams): stri
 
   // If Move projects found, show selection UI
   if (foundMoveProjects.length > 0) {
-    const projectOptions = foundMoveProjects.map(project =>
+    const projectOptions = foundMoveProjects.map((project: any) =>
       `<option value="${project.path}" ${project.path === activeMoveProjectRoot ? 'selected' : ''}>
         ${project.name} (${project.relativePath})
       </option>`
@@ -432,7 +432,7 @@ export function generateMoveProjectSelectionSection(params: WebviewParams): stri
           <button id="rescanMoveProjectsBtn" class="btn-secondary">🔄 Rescan</button>
         </div>
         <div id="activeMoveProjectStatus" style="font-size: 11px; color: var(--vscode-inputValidation-infoForeground); margin-top: 6px; ${!activeMoveProjectRoot ? 'display: none;' : ''}">
-          ✓ Active: ${activeMoveProjectRoot ? (foundMoveProjects.find(p => p.path === activeMoveProjectRoot)?.name || 'Unknown') : ''}
+          ✓ Active: ${activeMoveProjectRoot ? (foundMoveProjects.find((p: any) => p.path === activeMoveProjectRoot)?.name || 'Unknown') : ''}
         </div>
       </div>
     `;
