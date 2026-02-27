@@ -64,18 +64,44 @@ export class PackageController extends BaseController {
         }
         const rootPath = this.state.activeMoveProjectRoot || workspaceFolder.uri.fsPath;
 
+        // On devnet/localnet (ephemeral networks), build against testnet's environment
+        // definition for stable chain resolution. The local/devnet chain-id changes
+        // on each genesis, so using testnet as the env reference is the recommended approach.
+        const activeEnv = this.state.activeEnv;
+        const isEphemeralEnv = activeEnv === "devnet" || activeEnv === "localnet";
+        const buildFlags = isEphemeralEnv ? " -e testnet" : "";
+        const buildSuiCmd = `sui move build${buildFlags}`;
+
+        // Ensure chain-id is in Move.toml [environments] before building
+        const moveTomlPath = path.join(rootPath, "Move.toml");
+        if (isEphemeralEnv && fs.existsSync(moveTomlPath)) {
+            try {
+                let moveTomlContent = fs.readFileSync(moveTomlPath, "utf-8");
+                const chainId = await this.state.getChainIdentifier();
+                if (chainId) {
+                    const result = surgicalUpdateToml(moveTomlContent, "environments", activeEnv, chainId, true);
+                    if (result.changed) {
+                        fs.writeFileSync(moveTomlPath, result.content);
+                    }
+                }
+            } catch (err) {
+                console.warn(`⚠️ Could not update Move.toml chain-id before build: ${err}`);
+            }
+        }
+
         const terminal = vscode.window.createTerminal({
             name: "Sui Move Build",
         });
         terminal.show(true);
         const isWindows = process.platform === 'win32';
         const buildCmd = isWindows
-            ? `cd /d "${rootPath}" && sui move build`
-            : `cd "${rootPath}" && sui move build`;
+            ? `cd /d "${rootPath}" && ${buildSuiCmd}`
+            : `cd "${rootPath}" && ${buildSuiCmd}`;
         terminal.sendText(buildCmd, true);
 
+        const envNote = isEphemeralEnv ? ` (resolving against testnet env for ${activeEnv})` : "";
         vscode.window.showInformationMessage(
-            `🛠️ Running 'sui move build' in ${rootPath}...`
+            `🛠️ Running '${buildSuiCmd}' in ${rootPath}${envNote}...`
         );
     }
 
@@ -86,49 +112,47 @@ export class PackageController extends BaseController {
             return;
         }
         const rootPath = this.state.activeMoveProjectRoot || workspaceFolder.uri.fsPath;
-        const outputChannel =
-            vscode.window.createOutputChannel("Sui Move Publish");
+        const activeEnv = this.state.activeEnv;
+        const isEphemeralEnv = activeEnv === "devnet" || activeEnv === "localnet";
+
+        const outputChannel = vscode.window.createOutputChannel("Sui Move Publish");
         outputChannel.show(true);
-        outputChannel.appendLine(
-            `Running 'sui client publish' in ${rootPath}...\n`
-        );
+
+        if (isEphemeralEnv) {
+            outputChannel.appendLine(
+                `🌐 Environment: ${activeEnv} (ephemeral network — wiped weekly)\n` +
+                `📋 Using 'sui client test-publish -e ${activeEnv}' instead of 'sui client publish'.\n` +
+                `⚠️  Publication info will NOT be saved to Move.toml to avoid polluting\n` +
+                `    Published.toml for others who depend on it.\n`
+            );
+        } else {
+            outputChannel.appendLine(`Running 'sui client publish' in ${rootPath}...\n`);
+        }
 
         try {
-            // Pre-publish: Reset addresses in Move.toml to 0x0
+            // Pre-publish: Ensure chain-id is in [environments] section of Move.toml
             const moveTomlPath = path.join(rootPath, "Move.toml");
             if (fs.existsSync(moveTomlPath)) {
                 try {
                     let moveTomlContent = fs.readFileSync(moveTomlPath, "utf-8");
-                    const moveData = toml.parse(moveTomlContent);
-                    const pkgName = moveData.package?.name;
                     let changed = false;
 
-                    // 1. Fix [environments] section if missing (Surgically Force Add)
-                    if (this.state.activeEnv) {
+                    // Inject chain-id into [environments] section
+                    if (activeEnv) {
                         const chainId = await this.state.getChainIdentifier();
                         if (chainId) {
-                            const result = surgicalUpdateToml(moveTomlContent, "environments", this.state.activeEnv, chainId, true);
+                            const result = surgicalUpdateToml(moveTomlContent, "environments", activeEnv, chainId, true);
                             if (result.changed) {
                                 moveTomlContent = result.content;
-                                outputChannel.appendLine(`✅ Added/Updated environment ${this.state.activeEnv} with chain-id ${chainId} in Move.toml`);
+                                outputChannel.appendLine(`✅ Added/Updated environment '${activeEnv}' with chain-id ${chainId} in Move.toml`);
                                 changed = true;
                             }
                         }
                     }
 
-                    // 2. Reset package address to 0x0 (Surgically Only if exists)
-                    if (pkgName) {
-                        const result = surgicalUpdateToml(moveTomlContent, "addresses", pkgName, "0x0", false);
-                        if (result.changed) {
-                            moveTomlContent = result.content;
-                            outputChannel.appendLine(`✅ Reset address for ${pkgName} in Move.toml to 0x0.`);
-                            changed = true;
-                        }
-                    }
-
                     if (changed) {
                         fs.writeFileSync(moveTomlPath, moveTomlContent);
-                        // Add a small delay to ensure OS filesystem flush
+                        // Small delay to ensure OS filesystem flush
                         await new Promise(resolve => setTimeout(resolve, 500));
                     }
                 } catch (err) {
@@ -137,7 +161,18 @@ export class PackageController extends BaseController {
             }
 
             const isWindows = process.platform === 'win32';
-            const publishProcess = exec(`sui client publish`, {
+
+            // Choose command based on environment:
+            //   devnet/localnet → test-publish (ephemeral, no permanent Published.toml entry)
+            //     --build-env testnet: resolve deps from testnet (stable), publish to active CLI env
+            //   testnet/mainnet → publish (permanent, updates Move.toml)
+            const publishCmd = isEphemeralEnv
+                ? `sui client test-publish --build-env testnet`
+                : `sui client publish`;
+
+            outputChannel.appendLine(`Running '${publishCmd}' in ${rootPath}...\n`);
+
+            const publishProcess = exec(publishCmd, {
                 cwd: rootPath,
                 shell: isWindows ? 'cmd.exe' : undefined,
             });
@@ -155,73 +190,84 @@ export class PackageController extends BaseController {
 
             publishProcess.on("close", async (code) => {
                 if (code === 0) {
-                    vscode.window.showInformationMessage(
-                        '✅ Publish succeeded, see "Sui Move Publish" output.'
-                    );
+                    if (isEphemeralEnv) {
+                        // Ephemeral publish succeeded — do NOT update Move.toml published-at
+                        // or addresses, as this network will be wiped and others should not
+                        // depend on these addresses.
+                        outputChannel.appendLine(
+                            `\n✅ test-publish succeeded on ${activeEnv}.\n` +
+                            `ℹ️  Move.toml and Published.toml have NOT been updated (ephemeral network).\n` +
+                            `   Package is available on ${activeEnv} until the next genesis.`
+                        );
+                        vscode.window.showInformationMessage(
+                            `✅ test-publish succeeded on ${activeEnv}. Move.toml unchanged (ephemeral).`
+                        );
 
-                    // Extract UpgradeCap ObjectID
-                    const lines = fullOutput.split("\n");
-                    let upgradeCapId = "";
+                        // Ensure Pub.*.toml is in .gitignore
+                        this.ensureEphemeralGitignore(rootPath, outputChannel);
+                    } else {
+                        vscode.window.showInformationMessage(
+                            '✅ Publish succeeded, see "Sui Move Publish" output.'
+                        );
 
-                    for (let i = 0; i < lines.length; i++) {
-                        if (
-                            lines[i].includes("ObjectType: 0x2::package::UpgradeCap")
-                        ) {
-                            for (let j = i - 1; j >= 0; j--) {
-                                const idMatch = lines[j].match(
-                                    /ObjectID:\s*(0x[a-fA-F0-9]+)/
-                                );
-                                if (idMatch) {
-                                    upgradeCapId = idMatch[1];
-                                    break;
+                        // Extract UpgradeCap ObjectID
+                        const lines = fullOutput.split("\n");
+                        let upgradeCapId = "";
+
+                        for (let i = 0; i < lines.length; i++) {
+                            if (lines[i].includes("ObjectType: 0x2::package::UpgradeCap")) {
+                                for (let j = i - 1; j >= 0; j--) {
+                                    const idMatch = lines[j].match(/ObjectID:\s*(0x[a-fA-F0-9]+)/);
+                                    if (idMatch) {
+                                        upgradeCapId = idMatch[1];
+                                        break;
+                                    }
                                 }
-                            }
-                            if (upgradeCapId) {
-                                break;
+                                if (upgradeCapId) { break; }
                             }
                         }
-                    }
 
-                    // Extract package ID from multiple sources
-                    let pkg = this.state.extractPackageId(rootPath, this.state.activeEnv);
+                        // Extract package ID from Move.lock / Published.toml
+                        let pkg = this.state.extractPackageId(rootPath, activeEnv);
 
-                    // Post-publish: Update Move.toml with new package ID (Surgical)
-                    if (pkg && fs.existsSync(moveTomlPath)) {
-                        try {
-                            let newContent = fs.readFileSync(moveTomlPath, "utf-8");
-                            const moveData = toml.parse(newContent);
-                            const pkgName = moveData.package?.name;
-                            let postChanged = false;
+                        // Post-publish: Update Move.toml with new package ID (Surgical)
+                        if (pkg && fs.existsSync(moveTomlPath)) {
+                            try {
+                                let newContent = fs.readFileSync(moveTomlPath, "utf-8");
+                                const moveData = toml.parse(newContent);
+                                const pkgName = moveData.package?.name;
+                                let postChanged = false;
 
-                            // Update published-at in [package] section
-                            const pubResult = surgicalUpdateToml(newContent, "package", "published-at", pkg, true);
-                            if (pubResult.changed) {
-                                newContent = pubResult.content;
-                                postChanged = true;
-                            }
-
-                            // Update package address in [addresses] section (Only if exists)
-                            if (pkgName) {
-                                const addrResult = surgicalUpdateToml(newContent, "addresses", pkgName, pkg, false);
-                                if (addrResult.changed) {
-                                    newContent = addrResult.content;
+                                // Update published-at in [package] section
+                                const pubResult = surgicalUpdateToml(newContent, "package", "published-at", pkg, true);
+                                if (pubResult.changed) {
+                                    newContent = pubResult.content;
                                     postChanged = true;
                                 }
-                            }
 
-                            if (postChanged) {
-                                fs.writeFileSync(moveTomlPath, newContent);
-                                outputChannel.appendLine(`✅ Updated Move.toml: published-at = ${pkg}${pkgName ? `, ${pkgName} = ${pkg}` : ""}`);
+                                // Update package address in [addresses] section (Only if exists)
+                                if (pkgName) {
+                                    const addrResult = surgicalUpdateToml(newContent, "addresses", pkgName, pkg, false);
+                                    if (addrResult.changed) {
+                                        newContent = addrResult.content;
+                                        postChanged = true;
+                                    }
+                                }
+
+                                if (postChanged) {
+                                    fs.writeFileSync(moveTomlPath, newContent);
+                                    outputChannel.appendLine(`✅ Updated Move.toml: published-at = ${pkg}${pkgName ? `, ${pkgName} = ${pkg}` : ""}`);
+                                }
+                            } catch (err) {
+                                outputChannel.appendLine(`⚠️ Failed to update Move.toml after publishing: ${err}`);
                             }
-                        } catch (err) {
-                            outputChannel.appendLine(`⚠️ Failed to update Move.toml after publishing: ${err}`);
                         }
-                    }
 
-                    if (!upgradeCapId || !pkg) {
-                        vscode.window.showWarningMessage(
-                            "⚠️ Could not find UpgradeCap or package ID in publish output."
-                        );
+                        if (!upgradeCapId || !pkg) {
+                            vscode.window.showWarningMessage(
+                                "⚠️ Could not find UpgradeCap or package ID in publish output."
+                            );
+                        }
                     }
 
                     // Trigger a refresh/re-render via message
@@ -553,6 +599,182 @@ export class PackageController extends BaseController {
         } catch (err) {
             vscode.window.showErrorMessage(`❌ Failed to reset deployment: ${err}`);
             this.setStatus("Reset failed.");
+        }
+    }
+
+    private getEffectiveRootPath(): string | undefined {
+        if (this.state.activeMoveProjectRoot) {
+            return this.state.activeMoveProjectRoot;
+        }
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (workspaceFolder) {
+            return workspaceFolder.uri.fsPath;
+        }
+        vscode.window.showErrorMessage("No workspace or Move project selected.");
+        return undefined;
+    }
+
+    public async handleUpdateDeps() {
+        const rootPath = this.getEffectiveRootPath();
+        if (!rootPath) return;
+
+        this.setStatus("Updating dependencies...");
+        const terminal = vscode.window.createTerminal("Sui Move Update Deps");
+        terminal.show();
+        const isWindows = process.platform === 'win32';
+        const cdCmd = isWindows ? `cd /d "${rootPath}"` : `cd "${rootPath}"`;
+        terminal.sendText(`${cdCmd} && sui move update-deps`);
+        this.setStatus("Ready");
+    }
+
+    public async handlePublishWithDeps() {
+        const activeEnv = this.state.activeEnv;
+        if (activeEnv !== "devnet" && activeEnv !== "localnet") {
+            vscode.window.showErrorMessage("Publish with dependencies is only for ephemeral networks (devnet/localnet).");
+            return;
+        }
+
+        const rootPath = this.getEffectiveRootPath();
+        if (!rootPath) return;
+
+        const outputChannel = vscode.window.createOutputChannel("Sui Move Publish (w/ Deps)");
+        outputChannel.show(true);
+        outputChannel.appendLine(`🌐 Environment: ${activeEnv} (ephemeral)\n` +
+            `🚀 Running 'sui client test-publish --build-env testnet --publish-unpublished-deps'...\n`);
+
+        const isWindows = process.platform === 'win32';
+        const cmd = `sui client test-publish --build-env testnet --publish-unpublished-deps`;
+
+        const publishProc = exec(cmd, { cwd: rootPath, shell: isWindows ? 'cmd.exe' : undefined });
+
+        publishProc.stdout?.on("data", (data: any) => outputChannel.append(data.toString()));
+        publishProc.stderr?.on("data", (data: any) => outputChannel.append(data.toString()));
+
+        publishProc.on("close", (code: number | null) => {
+            if (code === 0) {
+                outputChannel.appendLine(`\n✅ Publish with dependencies succeeded.`);
+                this.ensureEphemeralGitignore(rootPath, outputChannel);
+                vscode.window.showInformationMessage("✅ Publish with dependencies succeeded.");
+            } else {
+                outputChannel.appendLine(`\n❌ Publish with dependencies failed (code ${code}).`);
+                vscode.window.showErrorMessage("❌ Publish with dependencies failed.");
+            }
+            this.state.refreshWallets();
+            this.postMessage("refresh");
+        });
+    }
+
+    public async handleAddDependency(message: any) {
+        const { depType, name, value, network, subdir, rev } = message;
+        const rootPath = this.getEffectiveRootPath();
+        if (!rootPath) return;
+
+        const moveTomlPath = path.join(rootPath, "Move.toml");
+        if (!fs.existsSync(moveTomlPath)) {
+            vscode.window.showErrorMessage(`Move.toml not found in ${rootPath}`);
+            return;
+        }
+
+        try {
+            let content = fs.readFileSync(moveTomlPath, "utf-8");
+            let depValueStr: string;
+
+            switch (depType) {
+                case "mvr":
+                    const mvrParts = [`r.mvr = "${value}"`];
+                    if (network) mvrParts.push(`network = "${network}"`);
+                    depValueStr = `{ ${mvrParts.join(", ")} }`;
+                    break;
+                case "git":
+                    const gitParts = [`git = "${value}"`];
+                    if (subdir) gitParts.push(`subdir = "${subdir}"`);
+                    if (rev) gitParts.push(`rev = "${rev}"`);
+                    depValueStr = `{ ${gitParts.join(", ")} }`;
+                    break;
+                case "local":
+                    depValueStr = `{ local = "${value}" }`;
+                    break;
+                case "system":
+                    depValueStr = `"${value}"`; // System deps are usually just a version string or name
+                    break;
+                default:
+                    return;
+            }
+
+            const result = surgicalUpdateToml(content, "dependencies", name, depValueStr, false);
+            if (result.changed) {
+                fs.writeFileSync(moveTomlPath, result.content);
+                vscode.window.showInformationMessage(`✅ Added ${depType} dependency '${name}' to Move.toml`);
+                this.setStatus(`Dependency ${name} added.`);
+            } else {
+                vscode.window.showInformationMessage(`ℹ️ Dependency '${name}' already exists in Move.toml with the same value.`);
+            }
+        } catch (err) {
+            vscode.window.showErrorMessage(`❌ Failed to add dependency: ${err}`);
+        }
+    }
+
+    public async handleDumpBytecode() {
+        const rootPath = this.getEffectiveRootPath();
+        if (!rootPath) return;
+
+        const activeEnv = this.state.activeEnv;
+        const pubFile = `Pub.${activeEnv}.toml`;
+
+        // The --build-env flag is required if the publication file doesn't exist.
+        // For ephemeral networks (devnet/localnet), we use 'testnet' for resolution.
+        // For others, we use the environment name itself.
+        const isEphemeralEnv = activeEnv === "devnet" || activeEnv === "localnet";
+        const envForBuild = isEphemeralEnv ? "testnet" : activeEnv;
+        const envFlag = ` --build-env ${envForBuild}`;
+
+        const cmd = `sui move build --dump-bytecode-as-base64 --pubfile-path ${pubFile}${envFlag}`;
+
+        const terminal = vscode.window.createTerminal("Sui Move Dump Bytecode");
+        terminal.show();
+        const isWindows = process.platform === 'win32';
+        const cdCmd = isWindows ? `cd /d "${rootPath}"` : `cd "${rootPath}"`;
+        terminal.sendText(`${cdCmd} && ${cmd}`);
+    }
+
+    public async handleViewPublishedToml() {
+        const rootPath = this.getEffectiveRootPath();
+        if (!rootPath) return;
+
+        const publishedTomlPath = path.join(rootPath, "Published.toml");
+        if (!fs.existsSync(publishedTomlPath)) {
+            this.state.publishedTomlData = null;
+            await this.state.onRefreshView();
+            return;
+        }
+
+        try {
+            const content = fs.readFileSync(publishedTomlPath, "utf-8");
+            const data = toml.parse(content);
+            this.state.publishedTomlData = data;
+            await this.state.onRefreshView();
+        } catch (err) {
+            vscode.window.showErrorMessage(`❌ Failed to parse Published.toml: ${err}`);
+        }
+    }
+
+    private ensureEphemeralGitignore(rootPath: string, outputChannel: vscode.OutputChannel) {
+        const gitignorePath = path.join(rootPath, ".gitignore");
+        const pattern = "Pub.*.toml";
+
+        try {
+            let content = "";
+            if (fs.existsSync(gitignorePath)) {
+                content = fs.readFileSync(gitignorePath, "utf-8");
+            }
+
+            if (!content.includes(pattern)) {
+                const prefix = content.endsWith("\n") || content === "" ? "" : "\n";
+                fs.appendFileSync(gitignorePath, `${prefix}${pattern}\n`);
+                outputChannel.appendLine(`\n🛡️  Added '${pattern}' to .gitignore to keep ephemeral addresses out of source control.`);
+            }
+        } catch (err) {
+            outputChannel.appendLine(`\n⚠️  Failed to update .gitignore: ${err}`);
         }
     }
 }

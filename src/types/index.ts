@@ -53,6 +53,7 @@ export interface WebviewParams {
     coinPortfolio?: CoinPortfolio | null;
     foundMoveProjects?: MoveProject[];
     activeMoveProjectRoot?: string;
+    publishedTomlData?: Record<string, any> | null;
 }
 
 export interface ArgumentPlaceholder {

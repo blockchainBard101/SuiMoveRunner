@@ -48,6 +48,21 @@ export class MessageHandler {
             case "reset-deployment":
                 await this.packageController.handleResetDeployment();
                 break;
+            case "update-deps":
+                await this.packageController.handleUpdateDeps();
+                break;
+            case "publish-with-deps":
+                await this.packageController.handlePublishWithDeps();
+                break;
+            case "add-dependency":
+                await this.packageController.handleAddDependency(message);
+                break;
+            case "dump-bytecode":
+                await this.packageController.handleDumpBytecode();
+                break;
+            case "view-published-toml":
+                await this.packageController.handleViewPublishedToml();
+                break;
 
             // Environment Operations
             case "switch-env":

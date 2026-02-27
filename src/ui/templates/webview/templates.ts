@@ -470,7 +470,8 @@ export function generateCreatePackageSection(isMoveProject: boolean): string {
 }
 
 export function generateMoveProjectSections(params: WebviewParams): string {
-  const { isMoveProject, pkg, upgradeCapInfo, modulesHtml } = params;
+  const { isMoveProject, pkg, upgradeCapInfo, modulesHtml, activeEnv, publishedTomlData } = params;
+  const isEphemeralEnv = activeEnv === "devnet" || activeEnv === "localnet";
 
   if (!isMoveProject) {
     return "";
@@ -478,15 +479,31 @@ export function generateMoveProjectSections(params: WebviewParams): string {
 
   return `
     <div class="section">
-      <div class="section-title">🛠️ Build</div>
-      <button onclick="sendBuild()" class="btn-primary">Build Package</button>
+      <div class="section-title">🛠️ Build & Tools ${isEphemeralEnv ? '<span class="badge-info">Resolving via testnet</span>' : ''}</div>
+      <div class="btn-group">
+        <button onclick="sendBuild()" class="btn-primary" title="sui move build">Build Package</button>
+        <button onclick="sendUpdateDeps()" class="btn-secondary" title="sui move update-deps">🔄 Update Deps</button>
+      </div>
+      <button onclick="sendDumpBytecode()" class="btn-secondary" style="margin-top: 8px;" title="sui move build --dump-bytecode-as-base64">📦 Dump Bytecode</button>
     </div>
 
     <div class="section">
-      <div class="section-title">🚀 Publish</div>
-      <button onclick="sendPublish()" class="btn-primary">${pkg ? "Re-publish" : "Publish"
-    }</button>
+      <div class="section-title">🚀 Publish ${isEphemeralEnv ? '<span class="badge-warning">Ephemeral</span>' : ''}</div>
+      <div class="btn-group">
+        <button onclick="sendPublish()" class="btn-primary">${pkg ? "Re-publish" : "Publish"}</button>
+        ${isEphemeralEnv ? `
+          <button onclick="sendPublishWithDeps()" class="btn-secondary" title="test-publish --publish-unpublished-deps">🚀 Publish w/ Auto-Deps</button>
+        ` : ""}
+      </div>
+      ${isEphemeralEnv ? `
+        <div style="font-size: 10px; color: var(--vscode-descriptionForeground); margin-top: 6px;">
+          Note: Publish info is not saved to Move.toml on ${activeEnv}.
+        </div>
+      ` : ""}
     </div>
+
+    ${generatePublishedTomlSection(publishedTomlData)}
+    ${generateDependencySection()}
 
     ${upgradeCapInfo ? `
       <div class="section">
@@ -497,7 +514,9 @@ export function generateMoveProjectSections(params: WebviewParams): string {
 
     <div class="section">
       <div class="section-title">🧪 Test</div>
-      <input id="testFuncName" placeholder="Test function (optional)" />
+      <div class="input-group">
+        <input id="testFuncName" placeholder="Test function (optional)" />
+      </div>
       <button onclick="sendTest()" class="btn-primary">Run Tests</button>
     </div>
 
@@ -519,11 +538,107 @@ export function generateMoveProjectSections(params: WebviewParams): string {
       <button onclick="sendCall()" class="btn-primary">Execute</button>
     </div>
 
-    <div class="section" style="border-color: var(--vscode-inputValidation-errorBorder);">
-      <div class="section-title" style="color: var(--vscode-inputValidation-errorForeground);">⚠️ Danger Zone</div>
-      <button onclick="sendReset()" class="btn-primary" style="background-color: var(--vscode-inputValidation-errorBackground); border: 1px solid var(--vscode-inputValidation-errorBorder);">Reset Deployment</button>
-      <div style="font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 6px;">
-        <span style="color: var(--vscode-inputValidation-errorForeground);">Warning:</span> This will delete Move.lock, Publish.toml, and wipe deployment addresses from Move.toml.
+    <div class="section danger-zone">
+      <div class="section-title">⚠️ Danger Zone</div>
+      <button onclick="sendReset()" class="btn-primary btn-danger">Reset Deployment</button>
+      <div class="input-help">
+        Warning: This will delete Move.lock, Publish.toml, and wipe deployment addresses from Move.toml.
+      </div>
+    </div>
+  `;
+}
+
+function generatePublishedTomlSection(data: any): string {
+  return `
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">📝 Published Info</div>
+        <button class="toggle-btn" onclick="toggleSection('publishedTomlContainer')">▼ Show</button>
+      </div>
+      <div id="publishedTomlContainer" style="display: none;">
+        <button onclick="sendViewPublishedToml()" class="btn-secondary" style="margin-bottom: 8px;">🔍 Fetch Published.toml</button>
+        <div id="publishedTomlContent">
+          ${data ? renderPublishedToml(data) : '<div class="input-help">Click fetch to view details from Published.toml</div>'}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderPublishedToml(data: any): string {
+  if (!data || !data.published) return '<div class="input-help">No publication data found.</div>';
+
+  const envs = Object.keys(data.published);
+  return envs.map(env => {
+    const pub = data.published[env];
+    return `
+      <div class="pub-env-item">
+        <div class="pub-env-header">${env.toUpperCase()}</div>
+        <div class="pub-env-grid">
+          <div class="pub-env-label">Address</div>
+          <div class="pub-env-value mono" onclick="copyValue('${pub['published-at']}')" title="Click to copy">${pub['published-at']?.slice(0, 8)}...</div>
+          
+          <div class="pub-env-label">Version</div>
+          <div class="pub-env-value">${pub.version}</div>
+          
+          <div class="pub-env-label">Chain ID</div>
+          <div class="pub-env-value mono">${pub['chain-id']?.slice(0, 8)}...</div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function generateDependencySection(): string {
+  return `
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">📦 Dependencies</div>
+        <button class="toggle-btn" onclick="toggleSection('dependencyContainer')">▼ Show</button>
+      </div>
+      <div id="dependencyContainer" style="display: none;">
+        <div class="input-group">
+          <label class="input-label">Type</label>
+          <select id="depTypeSelector" onchange="updateDepForm()">
+            <option value="mvr">Move Registry (MVR)</option>
+            <option value="git">Git Repository</option>
+            <option value="local">Local Path</option>
+            <option value="system">System Package</option>
+          </select>
+        </div>
+        
+        <div class="input-group">
+          <label class="input-label">Alias (name in Move.toml)</label>
+          <input id="depAlias" placeholder="e.g., my_dep" />
+        </div>
+
+        <div class="input-group">
+          <label id="depValueLabel" class="input-label">MVR Name (@scope/pkg)</label>
+          <input id="depValue" placeholder="e.g., @potatoes/ascii" />
+        </div>
+
+        <div id="mvrOptions" style="display: block;">
+          <div class="input-group">
+            <label class="input-label">MVR Network</label>
+            <select id="mvrNetwork">
+              <option value="mainnet">Mainnet</option>
+              <option value="testnet">Testnet</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="gitOptions" style="display: none;">
+          <div class="input-group">
+            <label class="input-label">Subdirectory (optional)</label>
+            <input id="depSubdir" placeholder="e.g., packages/codec" />
+          </div>
+          <div class="input-group">
+            <label class="input-label">Revision (optional)</label>
+            <input id="depRev" placeholder="e.g., main or v1.0.1" />
+          </div>
+        </div>
+
+        <button onclick="sendAddDependency()" class="btn-primary" style="margin-top: 8px;">➕ Add Dependency</button>
       </div>
     </div>
   `;

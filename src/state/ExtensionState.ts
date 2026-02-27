@@ -23,6 +23,7 @@ export class ExtensionState {
     public isSuiOutdated: boolean = false;
     public foundMoveProjects: MoveProject[] = [];
     public activeMoveProjectRoot: string = "";
+    public publishedTomlData: any = null;
     // Callback to refresh the UI
     public onRefreshView: () => Promise<void> = async () => { };
 

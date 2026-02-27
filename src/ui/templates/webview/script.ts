@@ -1,7 +1,13 @@
 // Types are implicitly handled in the string injection
 
 export const webviewScript = `
-  const vscode = acquireVsCodeApi();
+  let vscode;
+  try {
+    vscode = acquireVsCodeApi();
+  } catch (e) {
+    // If already acquired, we might be able to get it from somewhere or just ignore
+    // In most cases, it throws if you call it twice in the same context.
+  }
   const argsMapping = \${JSON.stringify(argsMapping)};
 
   // Event delegation for selectMoveProjectBtn (works even when button is recreated)
@@ -60,8 +66,18 @@ export const webviewScript = `
       section.classList.remove('collapsed');
     } else {
       container.style.display = 'none';
+    }
+  }
+
+  function toggleSection(id) {
+    const container = document.getElementById(id);
+    const toggle = container.parentElement.querySelector('.toggle-btn');
+    if (container.style.display === 'none') {
+      container.style.display = 'block';
+      toggle.textContent = '▲ Hide';
+    } else {
+      container.style.display = 'none';
       toggle.textContent = '▼ Show';
-      section.classList.add('collapsed');
     }
   }
 
@@ -438,6 +454,93 @@ export const webviewScript = `
   function sendReset() {
     setStatusMessage('Resetting deployment...');
     vscode.postMessage({ command: 'reset-deployment' });
+  }
+
+  function sendUpdateDeps() {
+    setStatusMessage('Updating dependencies...');
+    vscode.postMessage({ command: 'update-deps' });
+  }
+
+  function sendPublishWithDeps() {
+    setStatusMessage('Publishing with dependencies...');
+    vscode.postMessage({ command: 'publish-with-deps' });
+  }
+
+  function sendDumpBytecode() {
+    setStatusMessage('Dumping bytecode...');
+    vscode.postMessage({ command: 'dump-bytecode' });
+  }
+
+  function sendViewPublishedToml() {
+    setStatusMessage('Fetching Published.toml...');
+    vscode.postMessage({ command: 'view-published-toml' });
+  }
+
+  function sendAddDependency() {
+    const depType = document.getElementById('depTypeSelector').value;
+    const name = document.getElementById('depAlias').value.trim();
+    let value = document.getElementById('depValue').value.trim();
+    const network = document.getElementById('mvrNetwork').value;
+    const subdir = document.getElementById('depSubdir').value.trim();
+    const rev = document.getElementById('depRev').value.trim();
+
+    if (!name || !value) {
+      setStatusMessage('Please enter both alias and value/url');
+      return;
+    }
+
+    // Proactive cleaning: strip common command prefixes if pasted
+    if (depType === 'mvr') {
+      value = value.replace(/^(sui\s+)?mvr\s+add\s+/i, '');
+    }
+
+    setStatusMessage('Adding dependency...');
+    vscode.postMessage({ 
+      command: 'add-dependency', 
+      depType, 
+      name, 
+      value,
+      network: depType === 'mvr' ? network : undefined,
+      subdir: subdir || undefined, 
+      rev: rev || undefined 
+    });
+  }
+
+  function updateDepForm() {
+    const type = document.getElementById('depTypeSelector').value;
+    const label = document.getElementById('depValueLabel');
+    const mvrOptions = document.getElementById('mvrOptions');
+    const gitOptions = document.getElementById('gitOptions');
+    const valueInput = document.getElementById('depValue');
+
+    if (type === 'mvr') {
+      label.textContent = 'MVR Name (@scope/pkg)';
+      valueInput.placeholder = 'e.g., @potatoes/ascii';
+      mvrOptions.style.display = 'block';
+      gitOptions.style.display = 'none';
+    } else if (type === 'git') {
+      label.textContent = 'Git Repository URL';
+      valueInput.placeholder = 'e.g., https://github.com/...';
+      mvrOptions.style.display = 'none';
+      gitOptions.style.display = 'block';
+    } else if (type === 'local') {
+      label.textContent = 'Local File Path';
+      valueInput.placeholder = 'e.g., ../my_shared_lib';
+      mvrOptions.style.display = 'none';
+      gitOptions.style.display = 'none';
+    } else if (type === 'system') {
+      label.textContent = 'System Package Name';
+      valueInput.placeholder = 'e.g., Sui';
+      mvrOptions.style.display = 'none';
+      gitOptions.style.display = 'none';
+    }
+  }
+
+  function copyValue(val) {
+    navigator.clipboard.writeText(val).then(() => {
+      setStatusMessage('Copied to clipboard!');
+      setTimeout(() => setStatusMessage(''), 2000);
+    });
   }
 
   function extractOptionType(type) {
@@ -855,10 +958,6 @@ export const webviewScript = `
       validateImportForm();
     });
 
-    // Initial validation
-    validateMergeForm();
-    validateSplitForm();
-    validateTransferForm();
     validateImportForm();
   });
 
@@ -985,5 +1084,33 @@ export const webviewScript = `
       toggle.textContent = '▼ Show';
     }
   }
+  // Expose functions to global scope for inline onclick/onchange handlers
+  window.sendBuild = sendBuild;
+  window.sendPublish = sendPublish;
+  window.sendUpgrade = sendUpgrade;
+  window.sendTest = sendTest;
+  window.sendReset = sendReset;
+  window.sendUpdateDeps = sendUpdateDeps;
+  window.sendPublishWithDeps = sendPublishWithDeps;
+  window.sendDumpBytecode = sendDumpBytecode;
+  window.sendViewPublishedToml = sendViewPublishedToml;
+  window.sendAddDependency = sendAddDependency;
+  window.updateDepForm = updateDepForm;
+  window.mvrNetwork = document.getElementById('mvrNetwork'); // Optional, mainly for debugging if needed
+  window.copyValue = copyValue;
+  window.sendCall = sendCall;
+  window.toggleSection = toggleSection;
+  window.toggleGasCoins = toggleGasCoins;
+  window.toggleImportWallet = toggleImportWallet;
+  window.toggleCoinTools = toggleCoinTools;
+  window.copyGasCoinId = copyGasCoinId;
+  window.sendMergeCoin = sendMergeCoin;
+  window.sendSplitCoin = sendSplitCoin;
+  window.sendTransferCoin = sendTransferCoin;
+  window.toggleCoinObjects = toggleCoinObjects;
+  window.copyCoinObjectId = copyCoinObjectId;
+  window.copyCoinType = copyCoinType;
+  window.toggleCoinPortfolio = toggleCoinPortfolio;
+  window.setStatusMessage = setStatusMessage;
 `;
 
