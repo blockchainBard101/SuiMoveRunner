@@ -67,25 +67,36 @@ export const webviewScript = `
     const section = document.getElementById('gasCoinsSection');
     const container = section.querySelector('.gas-coins-container');
     const toggle = section.querySelector('.gas-coins-toggle');
+    const toggleText = toggle ? toggle.querySelector('.toggle-text') : null;
+    const icon = toggle ? toggle.querySelector('.toggle-icon') : null;
     
     if (container.style.display === 'none') {
       container.style.display = 'block';
-      toggle.textContent = '▲ Hide';
+      if (toggleText) toggleText.textContent = 'Hide';
+      if (icon) icon.style.transform = 'rotate(180deg)';
       section.classList.remove('collapsed');
     } else {
       container.style.display = 'none';
+      if (toggleText) toggleText.textContent = 'Show';
+      if (icon) icon.style.transform = 'rotate(0deg)';
+      section.classList.add('collapsed');
     }
   }
 
   function toggleSection(id) {
     const container = document.getElementById(id);
     const toggle = container.parentElement.querySelector('.toggle-btn');
+    const toggleText = toggle ? toggle.querySelector('.toggle-text') : null;
+    const icon = toggle ? toggle.querySelector('.toggle-icon') : null;
+
     if (container.style.display === 'none') {
       container.style.display = 'block';
-      toggle.textContent = '▲ Hide';
+      if (toggleText) toggleText.textContent = 'Hide';
+      if (icon) icon.style.transform = 'rotate(180deg)';
     } else {
       container.style.display = 'none';
-      toggle.textContent = '▼ Show';
+      if (toggleText) toggleText.textContent = 'Show';
+      if (icon) icon.style.transform = 'rotate(0deg)';
     }
   }
 
@@ -93,15 +104,19 @@ export const webviewScript = `
     const container = document.getElementById('importWalletContainer');
     const toggle = document.querySelector('.import-wallet-toggle');
     if (!container || !toggle) return;
+    const toggleText = toggle.querySelector('.toggle-text');
+    const icon = toggle.querySelector('.toggle-icon');
 
     if (container.style.display === 'none') {
       container.style.display = 'block';
-      toggle.textContent = '▲ Hide';
+      if (toggleText) toggleText.textContent = 'Hide';
+      if (icon) icon.style.transform = 'rotate(180deg)';
       // Re-validate on open to enable/disable button properly
       try { validateImportForm(); } catch {}
     } else {
       container.style.display = 'none';
-      toggle.textContent = '▼ Show';
+      if (toggleText) toggleText.textContent = 'Show';
+      if (icon) icon.style.transform = 'rotate(0deg)';
     }
   }
 
@@ -122,10 +137,13 @@ export const webviewScript = `
     const container = document.getElementById('coinToolsContainer');
     const toggle = section ? section.querySelector('.gas-coins-toggle') : null;
     if (!container || !toggle) return;
+    const toggleText = toggle.querySelector('.toggle-text');
+    const icon = toggle.querySelector('.toggle-icon');
 
     if (container.style.display === 'none') {
       container.style.display = 'block';
-      toggle.textContent = '▲ Hide';
+      if (toggleText) toggleText.textContent = 'Hide';
+      if (icon) icon.style.transform = 'rotate(180deg)';
       section.classList.remove('collapsed');
       // Re-validate forms on open
       try { validateMergeForm(); } catch {}
@@ -133,7 +151,8 @@ export const webviewScript = `
       try { validateTransferForm(); } catch {}
     } else {
       container.style.display = 'none';
-      toggle.textContent = '▼ Show';
+      if (toggleText) toggleText.textContent = 'Show';
+      if (icon) icon.style.transform = 'rotate(0deg)';
       section.classList.add('collapsed');
     }
   }
@@ -1065,13 +1084,17 @@ export const webviewScript = `
   function toggleCoinObjects(coinType) {
     const container = document.getElementById('coin-objects-' + coinType);
     const toggle = container.previousElementSibling.querySelector('.coin-objects-toggle');
+    const toggleText = toggle ? toggle.querySelector('.toggle-text') : null;
+    const icon = toggle ? toggle.querySelector('.toggle-icon') : null;
     
     if (container.style.display === 'none') {
       container.style.display = 'block';
-      toggle.textContent = '▲ Hide';
+      if (toggleText) toggleText.textContent = 'Hide';
+      if (icon) icon.style.transform = 'rotate(180deg)';
     } else {
       container.style.display = 'none';
-      toggle.textContent = '▼ Show';
+      if (toggleText) toggleText.textContent = 'Show';
+      if (icon) icon.style.transform = 'rotate(0deg)';
     }
   }
 
@@ -1096,12 +1119,17 @@ export const webviewScript = `
   function toggleCoinPortfolio() {
     const container = document.getElementById('coinPortfolioContainer');
     const toggle = document.querySelector('.coin-portfolio-toggle');
+    const toggleText = toggle ? toggle.querySelector('.toggle-text') : null;
+    const icon = toggle ? toggle.querySelector('.toggle-icon') : null;
+    
     if (container.style.display === 'none') {
       container.style.display = 'block';
-      toggle.textContent = '▲ Hide';
+      if (toggleText) toggleText.textContent = 'Hide';
+      if (icon) icon.style.transform = 'rotate(180deg)';
     } else {
       container.style.display = 'none';
-      toggle.textContent = '▼ Show';
+      if (toggleText) toggleText.textContent = 'Show';
+      if (icon) icon.style.transform = 'rotate(0deg)';
     }
   }
   // Expose functions to global scope for inline onclick/onchange handlers

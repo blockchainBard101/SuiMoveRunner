@@ -221,12 +221,7 @@ export const webviewStyles = `
     color: var(--vscode-foreground);
     display: flex;
     align-items: center;
-    gap: 6px;
-  }
-
-  .wallet-title::before {
-    content: "👤";
-    font-size: 14px;
+    gap: 8px;
   }
 
   .wallet-status {
@@ -296,17 +291,6 @@ export const webviewStyles = `
     border-color: var(--vscode-focusBorder);
     transform: translateY(-1px);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  }
-
-  .wallet-address::after {
-    content: "📋";
-    position: absolute;
-    right: 8px;
-    top: 50%;
-    transform: translateY(-50%);
-    opacity: 0;
-    transition: opacity 0.2s ease;
-    font-size: 10px;
   }
 
   .wallet-address:hover::after {
@@ -449,10 +433,43 @@ export const webviewStyles = `
   }
 
   /* Icons */
-  .icon {
+  .ant-icon {
     width: 14px;
     height: 14px;
-    opacity: 0.8;
+    display: inline-block;
+    vertical-align: middle;
+    flex-shrink: 0;
+    transition: transform 0.2s ease, color 0.2s ease;
+  }
+
+  .icon-small {
+    width: 12px;
+    height: 12px;
+  }
+
+  .icon-large {
+    width: 18px;
+    height: 18px;
+  }
+
+  .icon-success {
+    color: var(--vscode-terminal-ansiGreen);
+  }
+
+  .icon-warning {
+    color: var(--vscode-notificationsWarning-foreground, #cca700);
+  }
+
+  .icon-error, .icon-danger {
+    color: var(--vscode-errorForeground);
+  }
+
+  .icon-info {
+    color: var(--vscode-notificationsInfo-foreground, #3794ef);
+  }
+
+  .icon-spin {
+    animation: spin 1s linear infinite;
   }
 
   /* Loading state */
@@ -530,18 +547,8 @@ export const webviewStyles = `
     color: var(--vscode-foreground);
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     font-family: var(--vscode-font-family), -apple-system, BlinkMacSystemFont, sans-serif;
-  }
-
-  .gas-coins-title::before {
-    content: "⛽";
-    font-size: 11px;
-  }
-
-  .coin-tools-title::before {
-    content: "🧰";
-    font-size: 11px;
   }
 
   .gas-coins-container {
@@ -748,13 +755,7 @@ export const webviewStyles = `
     color: var(--vscode-foreground);
     display: flex;
     align-items: center;
-    gap: 6px;
-  }
-
-  .coin-symbol::before {
-    content: '🪙';
-    font-size: 14px;
-    opacity: 0.8;
+    gap: 8px;
   }
 
   .coin-name {
@@ -935,13 +936,8 @@ export const webviewStyles = `
     color: var(--vscode-foreground);
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
     font-family: var(--vscode-font-family), -apple-system, BlinkMacSystemFont, sans-serif;
-  }
-
-  .import-wallet-title::before {
-    content: "🔑";
-    font-size: 11px;
   }
 
   .import-wallet-form {
@@ -1038,13 +1034,8 @@ export const webviewStyles = `
     color: var(--vscode-foreground);
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
     font-family: var(--vscode-font-family), -apple-system, BlinkMacSystemFont, sans-serif;
-  }
-
-  .coin-portfolio-title::before {
-    content: "💰";
-    font-size: 11px;
   }
 
   #coinPortfolioContainer {
@@ -1163,24 +1154,8 @@ export const webviewStyles = `
     margin-bottom: 8px;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
     font-family: var(--vscode-font-family), -apple-system, BlinkMacSystemFont, sans-serif;
-  }
-
-  .coin-tools-section-title::before {
-    font-size: 11px;
-  }
-
-  .merge-title::before {
-    content: "🪙";
-  }
-
-  .split-title::before {
-    content: "✂️";
-  }
-
-  .transfer-title::before {
-    content: "📤";
   }
 
   /* Legacy coin portfolio styles for backward compatibility */

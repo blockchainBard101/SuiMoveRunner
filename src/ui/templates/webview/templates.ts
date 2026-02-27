@@ -1,4 +1,5 @@
 import { GasCoin, WebviewParams, CoinPortfolio, CoinBalance, CoinObject, CoinMetadata } from '../../../types';
+import { ICONS, getIcon } from './icons';
 
 export function generateHeader(iconUri: string): string {
   return `
@@ -35,7 +36,7 @@ export function generateSuiStatusSection(params: WebviewParams): string {
     return `
       <div class="section setup-section" style="background-color: var(--vscode-notifications-infoBackground); border-left: 4px solid var(--vscode-notifications-infoBorder); padding: 12px; border-radius: 4px; margin-bottom: 12px;">
         <div class="section-title" style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
-          <span style="font-size: 16px;">🚀</span>
+          <span style="font-size: 16px;">${getIcon(ICONS.ROCKET)}</span>
           <span>Sui CLI Not Found</span>
         </div>
         <div style="font-size: 11px; margin-bottom: 12px; opacity: 0.9;">
@@ -66,7 +67,7 @@ export function generateSuiStatusSection(params: WebviewParams): string {
     <div class="section" style="background-color: ${isSuiOutdated ? 'var(--vscode-inputValidation-errorBackground)' : 'var(--vscode-inputValidation-infoBackground)'}; border-color: ${isSuiOutdated ? 'var(--vscode-inputValidation-errorBorder)' : 'var(--vscode-inputValidation-infoBorder)'};">
       <div>
         <div class="section-title" style="color: ${isSuiOutdated ? 'var(--vscode-inputValidation-errorForeground)' : 'var(--vscode-inputValidation-infoForeground)'}; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
-          <span>${isSuiOutdated ? '⚠️ Sui CLI Outdated' : '✅ Sui CLI Up to Date'}</span>
+          <span style="display: flex; align-items: center; gap: 4px;">${isSuiOutdated ? getIcon(ICONS.WARNING, 'icon-warning') + ' Sui CLI Outdated' : getIcon(ICONS.CHECK, 'icon-success') + ' Sui CLI Up to Date'}</span>
           <span style="font-size: 9px; opacity: 0.8; font-weight: normal; background: rgba(0,0,0,0.1); padding: 2px 4px; border-radius: 3px;">via ${methodName}</span>
         </div>
         <div style="font-size: 11px; color: ${isSuiOutdated ? 'var(--vscode-inputValidation-errorForeground)' : 'var(--vscode-inputValidation-infoForeground)'}; margin-bottom: 8px;">
@@ -74,7 +75,7 @@ export function generateSuiStatusSection(params: WebviewParams): string {
         </div>
         ${isSuiOutdated ?
       `<button id="updateSuiBtn" class="btn-primary" onclick="handleUpdateSui('${installMethod}')">Update via ${methodName}</button>` :
-      '<div style="font-size: 11px; color: var(--vscode-inputValidation-infoForeground); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;"><span>✓</span> <span>All up to date!</span></div>'
+      `<div style="font-size: 11px; color: var(--vscode-inputValidation-infoForeground); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;"><span>\${getIcon(ICONS.CHECK, 'icon-success')}</span> <span>All up to date!</span></div>`
     }
       </div>
     </div>
@@ -84,7 +85,7 @@ export function generateSuiStatusSection(params: WebviewParams): string {
 export function generateRefreshSection(): string {
   return `
     <div class="section">
-      <button id="refreshBtn" class="btn-secondary">🔄 Refresh</button>
+      <button id="refreshBtn" class="btn-secondary">${getIcon(ICONS.RELOAD)} Refresh</button>
     </div>
   `;
 }
@@ -92,7 +93,7 @@ export function generateRefreshSection(): string {
 export function generateEnvironmentDisplay(activeEnv: string): string {
   return `
     <div class="env-display">
-      🌐 ${activeEnv || "No Environment"}
+      ${getIcon(ICONS.GLOBAL)} ${activeEnv || "No Environment"}
     </div>
   `;
 }
@@ -103,7 +104,7 @@ export function generateLocalnetSection(params: WebviewParams): string {
   if (activeEnv === "localnet" && !localnetRunning) {
     return `
       <div class="section">
-        <div class="section-title">🟢 Local Network</div>
+        <div class="section-title">${getIcon(ICONS.CHECK, 'icon-success')} Local Network</div>
         <button id="startLocalnetBtn" class="btn-primary">Start Local Network</button>
         <div style="font-size:11px;margin-top:6px;color:var(--vscode-descriptionForeground)">
           Please start the local network.<br>
@@ -119,7 +120,7 @@ export function generateFaucetSection(showFaucet: boolean): string {
   if (showFaucet) {
     return `
       <div class="section">
-        <div class="section-title">💧 Faucet</div>
+        <div class="section-title">${getIcon(ICONS.EXPERIMENT)} Faucet</div>
         <button id="getFaucetBtn" class="btn-primary">Get Faucet</button>
       </div>
     `;
@@ -138,7 +139,7 @@ export function generateEnvironmentSection(availableEnvs: any[], activeEnv: stri
 
   return `
     <div class="section">
-      <div class="section-title">🔧 Environment</div>
+      <div class="section-title">${getIcon(ICONS.TOOL)} Environment</div>
       <select id="envSwitcher">${envOptions}</select>
     </div>
   `;
@@ -152,8 +153,8 @@ export function generateGasCoinsHtml(gasCoins: GasCoin[]): string {
   return `
     <div class="gas-coins-section" id="gasCoinsSection">
       <div class="gas-coins-header">
-        <div class="gas-coins-title">Gas Coins (${gasCoins.length})</div>
-        <button class="gas-coins-toggle" onclick="toggleGasCoins()">▼ Show</button>
+        <div class="gas-coins-title">${getIcon(ICONS.FIRE, 'icon-warning')} Gas Coins (${gasCoins.length})</div>
+        <button class="gas-coins-toggle" onclick="toggleGasCoins()">${getIcon(ICONS.DOWN, 'toggle-icon')} <span class="toggle-text">Show</span></button>
       </div>
       <div class="gas-coins-container" style="display: none;">
         ${gasCoins
@@ -235,8 +236,8 @@ export function generateCoinToolsSection(gasCoins: GasCoin[], coinPortfolio: Coi
   return `
     <div class="gas-coins-section" id="coinToolsSection">
       <div class="gas-coins-header">
-        <div class="gas-coins-title coin-tools-title">Coin Tools</div>
-        <button class="gas-coins-toggle" onclick="toggleCoinTools()">▼ Show</button>
+        <div class="gas-coins-title coin-tools-title">${getIcon(ICONS.TOOL)} Coin Tools</div>
+        <button class="gas-coins-toggle" onclick="toggleCoinTools()">${getIcon(ICONS.DOWN, 'toggle-icon')} <span class="toggle-text">Show</span></button>
       </div>
       <div id="coinToolsContainer" style="display: none;">
         ${generateMergeCoinsSection(allCoins)}
@@ -254,7 +255,7 @@ function generateMergeCoinsSection(coins: CoinOption[]): string {
 
   return `
     <div class="coin-tools-form">
-      <div class="coin-tools-section-title merge-title">Merge Coins</div>
+      <div class="coin-tools-section-title merge-title">${getIcon(ICONS.MERGE)} Merge Coins</div>
       <div class="input-group">
         <label class="input-label">Primary Coin (to keep)</label>
         <select id="primaryCoinSelect">
@@ -284,7 +285,7 @@ function generateMergeCoinsSection(coins: CoinOption[]): string {
 function generateSplitCoinSection(coins: CoinOption[]): string {
   return `
     <div class="coin-tools-form">
-      <div class="coin-tools-section-title split-title">Split Coin</div>
+      <div class="coin-tools-section-title split-title">${getIcon(ICONS.SPLIT)} Split Coin</div>
       <div class="input-group">
         <label class="input-label">Coin to Split</label>
         <select id="splitCoinSelect">
@@ -313,7 +314,7 @@ function generateSplitCoinSection(coins: CoinOption[]): string {
 function generateTransferCoinSection(coins: CoinOption[]): string {
   return `
     <div class="coin-tools-form">
-      <div class="coin-tools-section-title transfer-title">Transfer Coin</div>
+      <div class="coin-tools-section-title transfer-title">${getIcon(ICONS.SEND)} Transfer Coin</div>
       <div class="input-group">
         <label class="input-label">Coin to Transfer</label>
         <select id="transferCoinSelect">
@@ -375,8 +376,8 @@ export function generateWalletSection(params: WebviewParams): string {
       </div>
       
       <div class="wallet-actions">
-        <button id="createAddressBtn" class="wallet-action-btn">➕ New Address</button>
-        <button id="exportWalletBtn" class="wallet-action-btn">📤 Export Wallet</button>
+        <button id="createAddressBtn" class="wallet-action-btn">${getIcon(ICONS.PLUS)} New Address</button>
+        <button id="exportWalletBtn" class="wallet-action-btn">${getIcon(ICONS.COPY)} Export Wallet</button>
       </div>
       
       ${generateGasCoinsHtml(gasCoins)}
@@ -384,8 +385,8 @@ export function generateWalletSection(params: WebviewParams): string {
 
       <div class="import-wallet-section">
         <div class="import-wallet-header">
-          <div class="import-wallet-title">Import Wallet</div>
-          <button class="import-wallet-toggle" onclick="toggleImportWallet()">▼ Show</button>
+          <div class="import-wallet-title">${getIcon(ICONS.KEY)} Import Wallet</div>
+          <button class="import-wallet-toggle" onclick="toggleImportWallet()">${getIcon(ICONS.DOWN, 'toggle-icon')} <span class="toggle-text">Show</span></button>
         </div>
         <div id="importWalletContainer" style="display: none;">
           <div class="import-wallet-form">
@@ -419,8 +420,8 @@ export function generateWalletSection(params: WebviewParams): string {
 
       <div class="coin-portfolio-section">
         <div class="coin-portfolio-header">
-          <div class="coin-portfolio-title">Coin Portfolio ${coinPortfolio && coinPortfolio.balances.length > 0 ? `(${coinPortfolio.balances.length} types)` : ''}</div>
-          <button class="coin-portfolio-toggle" onclick="toggleCoinPortfolio()">▼ Show</button>
+          <div class="coin-portfolio-title">${getIcon(ICONS.WALLET)} Coin Portfolio ${coinPortfolio && coinPortfolio.balances.length > 0 ? `(${coinPortfolio.balances.length} types)` : ''}</div>
+          <button class="coin-portfolio-toggle" onclick="toggleCoinPortfolio()">${getIcon(ICONS.DOWN, 'toggle-icon')} <span class="toggle-text">Show</span></button>
         </div>
         <div id="coinPortfolioContainer" style="display: none;">
           ${coinPortfolio && coinPortfolio.balances.length > 0 ? generateCoinPortfolioContent(coinPortfolio) : '<div class="no-coins-message">No coins found in this wallet</div>'}
@@ -441,11 +442,11 @@ export function generateMoveProjectSelectionSection(params: WebviewParams): stri
   if (foundMoveProjects.length === 0 && !isMoveProject) {
     return `
       <div class="section">
-        <div class="section-title">🔍 Move Project Detection</div>
+        <div class="section-title">${getIcon(ICONS.SEARCH)} Move Project Detection</div>
         <div style="font-size: 11px; color: var(--vscode-descriptionForeground); margin-bottom: 8px;">
           No Move project detected in the current workspace root.
         </div>
-        <button id="scanMoveProjectsBtn" class="btn-primary">🔍 Scan for Move Projects</button>
+        <button id="scanMoveProjectsBtn" class="btn-primary">${getIcon(ICONS.SEARCH)} Scan for Move Projects</button>
         <div style="font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 6px;">
           This will scan subdirectories for Move projects (Move.toml files).
         </div>
@@ -463,7 +464,7 @@ export function generateMoveProjectSelectionSection(params: WebviewParams): stri
 
     return `
       <div class="section">
-        <div class="section-title">📁 Move Project Selection</div>
+        <div class="section-title">${getIcon(ICONS.FOLDER)} Move Project Selection</div>
         <div style="font-size: 11px; color: var(--vscode-descriptionForeground); margin-bottom: 8px;">
           Found ${foundMoveProjects.length} Move project(s). Select which one to use for build/test/publish operations.
         </div>
@@ -471,11 +472,11 @@ export function generateMoveProjectSelectionSection(params: WebviewParams): stri
           ${projectOptions}
         </select>
         <div style="display: flex; gap: 8px;">
-          <button id="selectMoveProjectBtn" class="btn-primary">✅ Select Project</button>
-          <button id="rescanMoveProjectsBtn" class="btn-secondary">🔄 Rescan</button>
+          <button id="selectMoveProjectBtn" class="btn-primary">${getIcon(ICONS.CHECK)} Select Project</button>
+          <button id="rescanMoveProjectsBtn" class="btn-secondary">${getIcon(ICONS.RELOAD)} Rescan</button>
         </div>
-        <div id="activeMoveProjectStatus" style="font-size: 11px; color: var(--vscode-inputValidation-infoForeground); margin-top: 6px; ${!activeMoveProjectRoot ? 'display: none;' : ''}">
-          ✓ Active: ${activeMoveProjectRoot ? (foundMoveProjects.find((p: any) => p.path === activeMoveProjectRoot)?.name || 'Unknown') : ''}
+        <div id="activeMoveProjectStatus" style="font-size: 11px; color: var(--vscode-inputValidation-infoForeground); margin-top: 6px; display: flex; align-items: center; gap: 4px; ${!activeMoveProjectRoot ? 'display: none;' : ''}">
+          <span>${getIcon(ICONS.CHECK, 'icon-success')}</span> <span>Active: ${activeMoveProjectRoot ? (foundMoveProjects.find((p: any) => p.path === activeMoveProjectRoot)?.name || 'Unknown') : ''}</span>
         </div>
       </div>
     `;
@@ -485,11 +486,11 @@ export function generateMoveProjectSelectionSection(params: WebviewParams): stri
   if (isMoveProject) {
     return `
       <div class="section">
-        <div class="section-title">✅ Move Project Detected</div>
+        <div class="section-title">${getIcon(ICONS.CHECK, 'icon-success')} Move Project Detected</div>
         <div style="font-size: 11px; color: var(--vscode-inputValidation-infoForeground); margin-bottom: 8px;">
           Current workspace root contains a Move project. All operations will use this directory.
         </div>
-        <button id="rescanMoveProjectsBtn" class="btn-secondary">🔄 Scan for Other Projects</button>
+        <button id="rescanMoveProjectsBtn" class="btn-secondary">${getIcon(ICONS.RELOAD)} Scan for Other Projects</button>
       </div>
     `;
   }
@@ -504,7 +505,7 @@ export function generateCreatePackageSection(isMoveProject: boolean): string {
 
   return `
     <div class="section">
-      <div class="section-title">📦 Create Package</div>
+      <div class="section-title">${getIcon(ICONS.PACKAGE)} Create Package</div>
       <input id="packageName" placeholder="Package name (e.g., my_package)" />
       <span id="packageNameError" class="error-message" style="display: none;"></span>
       <button id="createPackageBtn" onclick="sendCreate()" class="btn-primary btn-disabled" disabled>Create</button>
@@ -522,20 +523,20 @@ export function generateMoveProjectSections(params: WebviewParams): string {
 
   return `
     <div class="section">
-      <div class="section-title">🛠️ Build & Tools ${isEphemeralEnv ? '<span class="badge-info">Resolving via testnet</span>' : ''}</div>
+      <div class="section-title">${getIcon(ICONS.TOOL)} Build & Tools ${isEphemeralEnv ? '<span class="badge-info">Resolving via testnet</span>' : ''}</div>
       <div class="btn-group">
         <button onclick="sendBuild()" class="btn-primary" title="sui move build">Build Package</button>
-        <button onclick="sendUpdateDeps()" class="btn-secondary" title="sui move update-deps">🔄 Update Deps</button>
+        <button onclick="sendUpdateDeps()" class="btn-secondary" title="sui move update-deps">${getIcon(ICONS.RELOAD)} Update Deps</button>
       </div>
-      <button onclick="sendDumpBytecode()" class="btn-secondary" style="margin-top: 8px;" title="sui move build --dump-bytecode-as-base64">📦 Dump Bytecode</button>
+      <button onclick="sendDumpBytecode()" class="btn-secondary" style="margin-top: 8px;" title="sui move build --dump-bytecode-as-base64">${getIcon(ICONS.PACKAGE)} Dump Bytecode</button>
     </div>
 
     <div class="section">
-      <div class="section-title">🚀 Publish ${isEphemeralEnv ? '<span class="badge-warning">Ephemeral</span>' : ''}</div>
+      <div class="section-title">${getIcon(ICONS.ROCKET)} Publish ${isEphemeralEnv ? '<span class="badge-warning">Ephemeral</span>' : ''}</div>
       <div class="btn-group">
         <button onclick="sendPublish()" class="btn-primary">${pkg ? "Re-publish" : "Publish"}</button>
         ${isEphemeralEnv ? `
-          <button onclick="sendPublishWithDeps()" class="btn-secondary" title="test-publish --publish-unpublished-deps">🚀 Publish w/ Auto-Deps</button>
+          <button onclick="sendPublishWithDeps()" class="btn-secondary" title="test-publish --publish-unpublished-deps">${getIcon(ICONS.ROCKET)} Publish w/ Auto-Deps</button>
         ` : ""}
       </div>
       ${isEphemeralEnv ? `
@@ -550,13 +551,13 @@ export function generateMoveProjectSections(params: WebviewParams): string {
 
     ${upgradeCapInfo ? `
       <div class="section">
-        <div class="section-title">⬆️ Upgrade</div>
+        <div class="section-title">${getIcon(ICONS.UP)} Upgrade</div>
         <button onclick="sendUpgrade()" class="btn-primary">Upgrade Package</button>
       </div>
     ` : ""}
 
     <div class="section">
-      <div class="section-title">🧪 Test</div>
+      <div class="section-title">${getIcon(ICONS.EXPERIMENT)} Test</div>
       <div class="input-group">
         <input id="testFuncName" placeholder="Test function (optional)" />
       </div>
@@ -564,7 +565,7 @@ export function generateMoveProjectSections(params: WebviewParams): string {
     </div>
 
     <div class="section">
-      <div class="section-title">⚡ Call Function</div>
+      <div class="section-title">${getIcon(ICONS.THUNDERBOLT)} Call Function</div>
       <div class="input-group">
         <label class="input-label">Package ID</label>
         <input id="pkg" value="${pkg}" readonly />
@@ -582,7 +583,7 @@ export function generateMoveProjectSections(params: WebviewParams): string {
     </div>
 
     <div class="section danger-zone">
-      <div class="section-title">⚠️ Danger Zone</div>
+      <div class="section-title">${getIcon(ICONS.WARNING, 'icon-error')} Danger Zone</div>
       <button onclick="sendReset()" class="btn-primary btn-danger">Reset Deployment</button>
       <div class="input-help">
         Warning: This will delete Move.lock, Publish.toml, and wipe deployment addresses from Move.toml.
@@ -595,11 +596,11 @@ function generatePublishedTomlSection(data: any): string {
   return `
     <div class="section">
       <div class="section-header">
-        <div class="section-title">📝 Published Info</div>
-        <button class="toggle-btn" onclick="toggleSection('publishedTomlContainer')">▼ Show</button>
+        <div class="section-title">${getIcon(ICONS.FILE_TEXT)} Published Info</div>
+        <button class="toggle-btn" onclick="toggleSection('publishedTomlContainer')">${getIcon(ICONS.DOWN, 'toggle-icon')} <span class="toggle-text">Show</span></button>
       </div>
       <div id="publishedTomlContainer" style="display: none;">
-        <button onclick="sendViewPublishedToml()" class="btn-secondary" style="margin-bottom: 8px;">🔍 Fetch Published.toml</button>
+        <button onclick="sendViewPublishedToml()" class="btn-secondary" style="margin-bottom: 8px;">${getIcon(ICONS.SEARCH)} Fetch Published.toml</button>
         <div id="publishedTomlContent">
           ${data ? renderPublishedToml(data) : '<div class="input-help">Click fetch to view details from Published.toml</div>'}
         </div>
@@ -636,8 +637,8 @@ function generateDependencySection(): string {
   return `
     <div class="section">
       <div class="section-header">
-        <div class="section-title">📦 Dependencies</div>
-        <button class="toggle-btn" onclick="toggleSection('dependencyContainer')">▼ Show</button>
+        <div class="section-title">${getIcon(ICONS.PACKAGE)} Dependencies</div>
+        <button class="toggle-btn" onclick="toggleSection('dependencyContainer')">${getIcon(ICONS.DOWN, 'toggle-icon')} <span class="toggle-text">Show</span></button>
       </div>
       <div id="dependencyContainer" style="display: none;">
         <div class="input-group">
@@ -681,7 +682,7 @@ function generateDependencySection(): string {
           </div>
         </div>
 
-        <button onclick="sendAddDependency()" class="btn-primary" style="margin-top: 8px;">➕ Add Dependency</button>
+        <button onclick="sendAddDependency()" class="btn-primary" style="margin-top: 8px;">${getIcon(ICONS.PLUS)} Add Dependency</button>
       </div>
     </div>
   `;
@@ -691,7 +692,7 @@ export function generateCoinPortfolioSection(coinPortfolio: CoinPortfolio | null
   if (!coinPortfolio || coinPortfolio.balances.length === 0) {
     return `
       <div class="section">
-        <div class="section-title">💰 Coin Portfolio</div>
+        <div class="section-title">${getIcon(ICONS.WALLET)} Coin Portfolio</div>
         <div style="font-size: 11px; color: var(--vscode-descriptionForeground); text-align: center; padding: 20px;">
           No coins found. Try refreshing or check your wallet connection.
         </div>
@@ -725,7 +726,7 @@ export function generateCoinPortfolioSection(coinPortfolio: CoinPortfolio | null
 
   return `
     <div class="section">
-      <div class="section-title">💰 Coin Portfolio (${coinPortfolio.balances.length} types)</div>
+      <div class="section-title">${getIcon(ICONS.WALLET)} Coin Portfolio (${coinPortfolio.balances.length} types)</div>
       <div class="coin-portfolio-container">
               ${coinPortfolio.balances.map((balance: CoinBalance) => {
     const metadata = coinPortfolio.metadata[balance.coinType];
@@ -760,7 +761,7 @@ export function generateCoinPortfolioSection(coinPortfolio: CoinPortfolio | null
                 <div class="coin-objects-section">
                   <div class="coin-objects-header">
                     <span>Coin Objects (${coinObjects.length})</span>
-                    <button class="coin-objects-toggle" onclick="toggleCoinObjects('${balance.coinType}')">▼ Show</button>
+                    <button class="coin-objects-toggle" onclick="toggleCoinObjects('${balance.coinType}')">${getIcon(ICONS.DOWN, 'toggle-icon')} <span class="toggle-text">Show</span></button>
                   </div>
                   <div class="coin-objects-container" id="coin-objects-${balance.coinType}" style="display: none;">
                   ${coinObjects.map((coin: CoinObject) => `
@@ -840,7 +841,7 @@ export function generateCoinPortfolioContent(coinPortfolio: CoinPortfolio): stri
           <div class="coin-objects-section">
             <div class="coin-objects-header">
               <span>Coin Objects (${coinObjects.length})</span>
-              <button class="coin-objects-toggle" onclick="toggleCoinObjects('${balance.coinType}')">▼ Show</button>
+              <button class="coin-objects-toggle" onclick="toggleCoinObjects('${balance.coinType}')">${getIcon(ICONS.DOWN, 'toggle-icon')} <span class="toggle-text">Show</span></button>
             </div>
             <div class="coin-objects-container" id="coin-objects-${balance.coinType}" style="display: none;">
             ${coinObjects.map((coin: CoinObject) => `
