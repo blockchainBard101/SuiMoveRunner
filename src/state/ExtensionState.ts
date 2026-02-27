@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import * as os from "os";
 import * as fs from "fs";
 import * as path from "path";
 import * as toml from "toml";
@@ -21,6 +22,10 @@ export class ExtensionState {
     public suiVersion: string = "";
     public latestSuiVersion: string = "";
     public isSuiOutdated: boolean = false;
+    public isSuiInstalled: boolean = false;
+    public installMethod: "suiup" | "homebrew" | "chocolatey" | "binary" | "source" | "none" = "none";
+    public osPlatform: string = process.platform;
+    public suiPath: string = "sui"; // Default to just 'sui'
     public foundMoveProjects: MoveProject[] = [];
     public activeMoveProjectRoot: string = "";
     public publishedTomlData: any = null;
@@ -38,7 +43,7 @@ export class ExtensionState {
 
     public async refreshWallets() {
         try {
-            const addrOutput = await runCommand(`sui client addresses --json`, undefined, 5000);
+            const addrOutput = await runCommand(`${this.suiPath} client addresses --json`, undefined, 5000);
             const parsed = safeJsonParse(addrOutput);
             this.activeWallet = parsed.activeAddress || "";
             this.wallets = parsed.addresses.map((arr: any[]) => ({
@@ -78,7 +83,7 @@ export class ExtensionState {
 
     public async refreshEnvs() {
         try {
-            const envOutput = await runCommand(`sui client envs --json`, undefined, 5000);
+            const envOutput = await runCommand(`${this.suiPath} client envs --json`, undefined, 5000);
             const [envsList, currentEnv] = safeJsonParse(envOutput);
             this.activeEnv = currentEnv;
 
@@ -116,15 +121,25 @@ export class ExtensionState {
     public async checkSuiVersion() {
         try {
             const currentVersion = await getSuiVersion();
-            const latestVersion = await getLatestSuiVersion();
+            this.isSuiInstalled = !!currentVersion;
 
-            this.suiVersion = currentVersion || "Unknown";
-            this.latestSuiVersion = latestVersion || "Unknown";
+            if (this.isSuiInstalled) {
+                await this.detectInstallMethod();
+                const latestVersion = await getLatestSuiVersion();
 
-            if (currentVersion && latestVersion) {
-                this.isSuiOutdated = compareVersions(currentVersion, latestVersion);
+                this.suiVersion = currentVersion || "Unknown";
+                this.latestSuiVersion = latestVersion || "Unknown";
+
+                if (currentVersion && latestVersion) {
+                    this.isSuiOutdated = compareVersions(currentVersion, latestVersion);
+                } else {
+                    this.isSuiOutdated = false;
+                }
             } else {
+                this.suiVersion = "";
+                this.latestSuiVersion = "";
                 this.isSuiOutdated = false;
+                this.installMethod = "none";
             }
             await this.onRefreshView();
         } catch (error) {
@@ -134,6 +149,41 @@ export class ExtensionState {
             this.isSuiOutdated = false;
             await this.onRefreshView();
         }
+    }
+
+    private async detectInstallMethod() {
+        const expandHome = (p: string) => p.startsWith('~') ? p.replace('~', os.homedir()) : p;
+        const checkPaths = [
+            'sui',
+            expandHome('~/.cargo/bin/sui'),
+            '/opt/homebrew/bin/sui',
+            '/usr/local/bin/sui'
+        ];
+
+        for (const path of checkPaths) {
+            try {
+                const isWindows = process.platform === 'win32';
+                const whichCmd = isWindows ? `where ${path}` : `which ${path}`;
+                const suiPath = (await runCommand(whichCmd, undefined, 2000)).trim();
+
+                if (suiPath.includes('.suiup')) {
+                    this.installMethod = "suiup";
+                } else if (suiPath.includes('homebrew') || suiPath.includes('Cellar')) {
+                    this.installMethod = "homebrew";
+                } else if (suiPath.includes('Chocolatey')) {
+                    this.installMethod = "chocolatey";
+                } else if (suiPath.includes('.cargo/bin')) {
+                    this.installMethod = "source";
+                } else {
+                    this.installMethod = "binary";
+                }
+                this.suiPath = path;
+                return; // Found it
+            } catch {
+                // Try next path
+            }
+        }
+        this.installMethod = "none";
     }
 
     public async scanForMoveProjects() {
@@ -204,7 +254,7 @@ export class ExtensionState {
 
     public async getChainIdentifier(): Promise<string> {
         try {
-            const output = await runCommand(`sui client chain-identifier`, undefined, 5000);
+            const output = await runCommand(`${this.suiPath} client chain-identifier`, undefined, 5000);
             return output.trim();
         } catch (e) {
             console.error("Failed to get chain identifier:", e);

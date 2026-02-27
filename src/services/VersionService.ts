@@ -1,16 +1,37 @@
 import fetch from "node-fetch";
+import * as os from "os";
 import { runCommand } from "../utils/shell";
 
-export async function getSuiVersion(): Promise<string | null> {
-    try {
-        const output = await runCommand('sui --version', undefined, 5000);
-        // Extract version from output like "sui 1.18.0-rc.0" or "sui 1.55.0-homebrew"
-        const match = output.match(/sui\s+([\d.]+(?:-[\w.]+)?)/);
-        return match ? match[1] : null;
-    } catch (error) {
-        console.error('Error getting Sui version:', error);
-        return null;
+function expandHome(path: string): string {
+    if (path.startsWith('~')) {
+        return path.replace('~', os.homedir());
     }
+    return path;
+}
+
+export async function getSuiVersion(): Promise<string | null> {
+    const commands = [
+        'sui --version',
+        `${expandHome('~/.cargo/bin/sui')} --version`,
+        '/usr/local/bin/sui --version',
+        '/opt/homebrew/bin/sui --version'
+    ];
+
+    for (const cmd of commands) {
+        try {
+            console.log(`[VersionService] Checking Sui version with: ${cmd}`);
+            const output = await runCommand(cmd, undefined, 5000);
+            const match = output.match(/sui\s+([^\s]+)/i);
+            if (match) {
+                console.log(`[VersionService] Found Sui version: ${match[1]}`);
+                return match[1];
+            }
+        } catch (error) {
+            console.log(`[VersionService] Command failed or no match: ${cmd}`);
+        }
+    }
+    console.log(`[VersionService] Sui CLI not found after ${commands.length} attempts.`);
+    return null;
 }
 
 export async function getLatestSuiVersion(): Promise<string | null> {

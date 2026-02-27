@@ -24,7 +24,7 @@ export class EnvironmentController extends BaseController {
             // Check if environment exists in user's Sui client
             let envExists = false;
             try {
-                const envOutput = await runCommand(`sui client envs --json`);
+                const envOutput = await runCommand(`${this.state.suiPath} client envs --json`);
                 // We know safeJsonParse returns [envsList, currentEnv]
                 const [envsList] = safeJsonParse(envOutput);
                 envExists = envsList.some((e: any) => e.alias === alias);
@@ -75,7 +75,7 @@ export class EnvironmentController extends BaseController {
 
                 if (rpc) {
                     await runCommand(
-                        `sui client new-env --alias ${alias} --rpc ${rpc}`
+                        `${this.state.suiPath} client new-env --alias ${alias} --rpc ${rpc}`
                     );
                     vscode.window.showInformationMessage(
                         `✅ Created new environment: ${alias}`
@@ -84,7 +84,7 @@ export class EnvironmentController extends BaseController {
             }
 
             // Now switch to the environment
-            await runCommand(`sui client switch --env ${alias}`);
+            await runCommand(`${this.state.suiPath} client switch --env ${alias}`);
 
             await this.state.refreshEnvs();
             await this.state.refreshWallets();
@@ -100,35 +100,93 @@ export class EnvironmentController extends BaseController {
         }
     }
 
-    async handleUpdateSui() {
-        const isWindows = process.platform === 'win32';
-        const isMacOS = process.platform === 'darwin';
+    async handleUpdateSui(message?: any) {
+        const method = message?.method;
         const terminal = vscode.window.createTerminal({
             name: "Sui CLI Update",
         });
         terminal.show(true);
 
         let updateCmd = "";
-        if (isWindows) {
-            // Windows: Use Chocolatey
-            updateCmd = 'choco upgrade sui';
-        } else if (isMacOS) {
-            // macOS: Use Homebrew
-            updateCmd = 'brew upgrade sui';
-        } else {
-            // Linux: Use Cargo
-            updateCmd = 'cargo install --locked --git https://github.com/MystenLabs/sui.git --branch testnet sui --features tracing';
+        const detectedMethod = method || this.state.installMethod;
+
+        switch (detectedMethod) {
+            case "suiup":
+                updateCmd = "suiup update";
+                break;
+            case "homebrew":
+                updateCmd = "brew upgrade sui";
+                break;
+            case "chocolatey":
+                updateCmd = "choco upgrade sui";
+                break;
+            case "source":
+                updateCmd = "cargo install --locked --git https://github.com/MystenLabs/sui.git --branch testnet sui --features tracing";
+                break;
+            default:
+                // Fallback to OS-based defaults
+                if (process.platform === 'win32') updateCmd = 'choco upgrade sui';
+                else if (process.platform === 'darwin') updateCmd = 'brew upgrade sui';
+                else updateCmd = 'suiup update'; // Recommend suiup for linux
         }
 
         terminal.sendText(updateCmd, true);
         vscode.window.showInformationMessage(
-            "🔄 Updating Sui CLI... Check the terminal for progress."
+            `🔄 Updating Sui CLI via ${detectedMethod}... Check the terminal for progress.`
         );
 
         // Refresh version check after a delay
         setTimeout(async () => {
             await this.state.checkSuiVersion();
             this.postMessage("refresh");
-        }, 15000);
+        }, 20000);
+    }
+
+    async handleInstallSui(message: any) {
+        const { method } = message;
+        const terminal = vscode.window.createTerminal({
+            name: "Sui CLI Install",
+        });
+        terminal.show(true);
+
+        let installCmd = "";
+        switch (method) {
+            case "suiup":
+                installCmd = "curl -sSfL https://raw.githubusercontent.com/Mystenlabs/suiup/main/install.sh | sh && suiup install sui";
+                break;
+            case "brew":
+                installCmd = "brew install sui";
+                break;
+            case "choco":
+                installCmd = "choco install sui";
+                break;
+            case "source":
+                installCmd = "cargo install --locked --git https://github.com/MystenLabs/sui.git --branch testnet sui --features tracing";
+                break;
+            case "binary":
+                vscode.window.showInformationMessage("Opening Sui releases page for binary download...");
+                vscode.env.openExternal(vscode.Uri.parse("https://github.com/MystenLabs/sui/releases/latest"));
+                return;
+            default:
+                installCmd = "curl -sSfL https://raw.githubusercontent.com/Mystenlabs/suiup/main/install.sh | sh && suiup install sui";
+        }
+
+        terminal.sendText(installCmd, true);
+        vscode.window.showInformationMessage(
+            `🚀 Installing Sui CLI via ${method}... Check the terminal for progress.`
+        );
+
+        // Periodically check if installation finished
+        const interval = setInterval(async () => {
+            await this.state.checkSuiVersion();
+            if (this.state.isSuiInstalled) {
+                vscode.window.showInformationMessage("✅ Sui CLI installation detected!");
+                this.postMessage("refresh");
+                clearInterval(interval);
+            }
+        }, 10000);
+
+        // Stop checking after 5 minutes
+        setTimeout(() => clearInterval(interval), 300000);
     }
 }

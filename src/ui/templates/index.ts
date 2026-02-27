@@ -4,7 +4,7 @@ import { webviewScript } from './webview/script';
 import {
   generateHeader,
   generateStatusBar,
-  generateSuiVersionSection,
+  generateSuiStatusSection,
   generateRefreshSection,
   generateEnvironmentDisplay,
   generateLocalnetSection,
@@ -39,6 +39,9 @@ export function getWebviewContent(params: WebviewParams): string {
     suiVersion = "Unknown",
     latestSuiVersion = "Unknown",
     isSuiOutdated = false,
+    isSuiInstalled = false,
+    installMethod = "none",
+    osPlatform = "linux",
     coinPortfolio = null,
   } = params;
 
@@ -57,7 +60,7 @@ export function getWebviewContent(params: WebviewParams): string {
 <body>
   ${generateHeader(iconUri)}
   ${generateStatusBar()}
-  ${generateSuiVersionSection(params)}
+  ${generateSuiStatusSection(params)}
   ${generateRefreshSection()}
   ${generateEnvironmentDisplay(activeEnv)}
   ${generateLocalnetSection(params)}

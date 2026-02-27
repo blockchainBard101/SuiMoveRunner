@@ -42,7 +42,7 @@ export class PackageController extends BaseController {
 
         const targetPath = path.join(basePath, name);
         try {
-            await runCommand(`sui move new ${name}`, basePath);
+            await runCommand(`${this.state.suiPath} move new ${name}`, basePath);
             await waitForFolder(targetPath, 2000);
             vscode.commands.executeCommand(
                 "vscode.openFolder",
@@ -70,7 +70,7 @@ export class PackageController extends BaseController {
         const activeEnv = this.state.activeEnv;
         const isEphemeralEnv = activeEnv === "devnet" || activeEnv === "localnet";
         const buildFlags = isEphemeralEnv ? " -e testnet" : "";
-        const buildSuiCmd = `sui move build${buildFlags}`;
+        const buildSuiCmd = `${this.state.suiPath} move build${buildFlags}`;
 
         // Ensure chain-id is in Move.toml [environments] before building
         const moveTomlPath = path.join(rootPath, "Move.toml");
@@ -121,12 +121,12 @@ export class PackageController extends BaseController {
         if (isEphemeralEnv) {
             outputChannel.appendLine(
                 `🌐 Environment: ${activeEnv} (ephemeral network — wiped weekly)\n` +
-                `📋 Using 'sui client test-publish -e ${activeEnv}' instead of 'sui client publish'.\n` +
+                `📋 Using '${this.state.suiPath} client test-publish -e ${activeEnv}' instead of '${this.state.suiPath} client publish'.\n` +
                 `⚠️  Publication info will NOT be saved to Move.toml to avoid polluting\n` +
                 `    Published.toml for others who depend on it.\n`
             );
         } else {
-            outputChannel.appendLine(`Running 'sui client publish' in ${rootPath}...\n`);
+            outputChannel.appendLine(`Running '${this.state.suiPath} client publish' in ${rootPath}...\n`);
         }
 
         try {
@@ -167,8 +167,8 @@ export class PackageController extends BaseController {
             //     --build-env testnet: resolve deps from testnet (stable), publish to active CLI env
             //   testnet/mainnet → publish (permanent, updates Move.toml)
             const publishCmd = isEphemeralEnv
-                ? `sui client test-publish --build-env testnet`
-                : `sui client publish`;
+                ? `${this.state.suiPath} client test-publish --build-env testnet`
+                : `${this.state.suiPath} client publish`;
 
             outputChannel.appendLine(`Running '${publishCmd}' in ${rootPath}...\n`);
 
@@ -330,13 +330,13 @@ export class PackageController extends BaseController {
             vscode.window.createOutputChannel("Sui Move Upgrade");
         outputChannel.show(true);
         outputChannel.appendLine(
-            `Running 'sui client upgrade --upgrade-capability ${upgradeCapInfo.upgradeCap}' in ${rootPath}...\n`
+            `Running '${this.state.suiPath} client upgrade --upgrade-capability ${upgradeCapInfo.upgradeCap}' in ${rootPath}...\n`
         );
 
         try {
             const isWindows = process.platform === 'win32';
             const upgradeProcess = exec(
-                `sui client upgrade --upgrade-capability ${upgradeCapInfo.upgradeCap}`,
+                `${this.state.suiPath} client upgrade --upgrade-capability ${upgradeCapInfo.upgradeCap}`,
                 {
                     cwd: rootPath,
                     shell: isWindows ? 'cmd.exe' : undefined,
@@ -419,7 +419,7 @@ export class PackageController extends BaseController {
         });
         terminal.show(true);
 
-        let cmd = "sui move test";
+        let cmd = `${this.state.suiPath} move test`;
         if (funcName) {
             cmd += ` ${funcName}`;
         }
@@ -623,7 +623,7 @@ export class PackageController extends BaseController {
         terminal.show();
         const isWindows = process.platform === 'win32';
         const cdCmd = isWindows ? `cd /d "${rootPath}"` : `cd "${rootPath}"`;
-        terminal.sendText(`${cdCmd} && sui move update-deps`);
+        terminal.sendText(`${cdCmd} && ${this.state.suiPath} move update-deps`);
         this.setStatus("Ready");
     }
 
@@ -643,7 +643,7 @@ export class PackageController extends BaseController {
             `🚀 Running 'sui client test-publish --build-env testnet --publish-unpublished-deps'...\n`);
 
         const isWindows = process.platform === 'win32';
-        const cmd = `sui client test-publish --build-env testnet --publish-unpublished-deps`;
+        const cmd = `${this.state.suiPath} client test-publish --build-env testnet --publish-unpublished-deps`;
 
         const publishProc = exec(cmd, { cwd: rootPath, shell: isWindows ? 'cmd.exe' : undefined });
 
@@ -728,7 +728,7 @@ export class PackageController extends BaseController {
         const envForBuild = isEphemeralEnv ? "testnet" : activeEnv;
         const envFlag = ` --build-env ${envForBuild}`;
 
-        const cmd = `sui move build --dump-bytecode-as-base64 --pubfile-path ${pubFile}${envFlag}`;
+        const cmd = `${this.state.suiPath} move build --dump-bytecode-as-base64 --pubfile-path ${pubFile}${envFlag}`;
 
         const terminal = vscode.window.createTerminal("Sui Move Dump Bytecode");
         terminal.show();

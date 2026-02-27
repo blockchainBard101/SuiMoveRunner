@@ -14,7 +14,7 @@ export class TransactionController extends BaseController {
         }
         const rootPath = this.state.activeMoveProjectRoot || workspaceFolder.uri.fsPath;
 
-        let callCmd = `sui client call --package ${pkg} --module ${module} --function ${func}`;
+        let callCmd = `${this.state.suiPath} client call --package ${pkg} --module ${module} --function ${func}`;
 
         if (typeArgs && typeArgs.length > 0) {
             callCmd += " --type-args " + typeArgs.join(" ");
@@ -48,8 +48,8 @@ export class TransactionController extends BaseController {
 
             const address = this.state.activeWallet || '';
             const cmd = address
-                ? `sui client faucet --address ${address}`
-                : 'sui client faucet';
+                ? `${this.state.suiPath} client faucet --address ${address}`
+                : `${this.state.suiPath} client faucet`;
             const output = await runCommand(cmd);
             vscode.window.showInformationMessage(
                 "💧 Faucet requested:\n" + output
@@ -79,7 +79,7 @@ export class TransactionController extends BaseController {
         const terminal = vscode.window.createTerminal({ name: "Sui Merge Coin" });
         terminal.show(true);
         const isWindows = process.platform === 'win32';
-        const mergeCmd = `sui client merge-coin --primary-coin ${primaryCoin} --coin-to-merge ${coinToMerge}`;
+        const mergeCmd = `${this.state.suiPath} client merge-coin --primary-coin ${primaryCoin} --coin-to-merge ${coinToMerge}`;
         const finalCmd = rootPath
             ? (isWindows
                 ? `cd /d "${rootPath}" && ${mergeCmd}`
@@ -118,7 +118,7 @@ export class TransactionController extends BaseController {
         const terminal = vscode.window.createTerminal({ name: "Sui Split Coin" });
         terminal.show(true);
         const isWindows = process.platform === 'win32';
-        let splitCmd = `sui client split-coin --coin-id ${coinId}`;
+        let splitCmd = `${this.state.suiPath} client split-coin --coin-id ${coinId}`;
         if (amounts && amounts.length > 0) {
             splitCmd += ` --amounts ${amounts.join(' ')}`;
         }
@@ -158,7 +158,7 @@ export class TransactionController extends BaseController {
         const terminal = vscode.window.createTerminal({ name: "Sui Transfer SUI" });
         terminal.show(true);
         const isWindows = process.platform === 'win32';
-        let transferCmd = `sui client transfer-sui --to ${to} --sui-coin-object-id ${coinId}`;
+        let transferCmd = `${this.state.suiPath} client transfer-sui --to ${to} --sui-coin-object-id ${coinId}`;
         if (amount && amount.trim().length > 0) {
             transferCmd += ` --amount ${amount.trim()}`;
         }
@@ -204,14 +204,14 @@ export class TransactionController extends BaseController {
         let transferCmd: string;
 
         if (isSui) {
-            transferCmd = `sui client transfer-sui --to ${to} --sui-coin-object-id ${coinId}`;
+            transferCmd = `${this.state.suiPath} client transfer-sui --to ${to} --sui-coin-object-id ${coinId}`;
             if (amount && amount.trim().length > 0) {
                 transferCmd += ` --amount ${amount.trim()}`;
             }
             transferCmd += ` --gas-budget 10000000`;
         } else {
             // For non-SUI coins, use the generic transfer command
-            transferCmd = `sui client transfer --to ${to} --object-id ${coinId}`;
+            transferCmd = `${this.state.suiPath} client transfer --to ${to} --object-id ${coinId}`;
             if (amount && amount.trim().length > 0) {
                 transferCmd += ` --amount ${amount.trim()}`;
             }

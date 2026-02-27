@@ -75,7 +75,10 @@ export class MessageHandler {
                 await this.envController.handleSwitchEnv({ env: "localnet" });
                 break;
             case "update-sui":
-                await this.envController.handleUpdateSui();
+                await this.envController.handleUpdateSui(message);
+                break;
+            case "install-sui":
+                await this.envController.handleInstallSui(message);
                 break;
 
             // Wallet Operations
@@ -133,6 +136,9 @@ export class MessageHandler {
                 // await this.state.scanForMoveProjects(); // Maybe overkill on every refresh, but safer
 
                 await this.state.onRefreshView();
+                break;
+            case "debug-log":
+                console.log(`[Webview Debug] ${message.message}`);
                 break;
         }
     }

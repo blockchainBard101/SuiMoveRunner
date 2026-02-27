@@ -4,10 +4,18 @@ export const webviewScript = `
   let vscode;
   try {
     vscode = acquireVsCodeApi();
-  } catch (e) {
-    // If already acquired, we might be able to get it from somewhere or just ignore
-    // In most cases, it throws if you call it twice in the same context.
-  }
+  } catch (e) { }
+
+  window.onerror = function(msg, url, line, col, error) {
+    if (vscode) {
+      vscode.postMessage({
+        command: 'debug-log',
+        message: \`JS Error: \${msg} at \${line}:\${col}. Error: \${error?.stack}\`
+      });
+    }
+    return false;
+  };
+  
   const argsMapping = \${JSON.stringify(argsMapping)};
 
   // Event delegation for selectMoveProjectBtn (works even when button is recreated)
@@ -95,6 +103,18 @@ export const webviewScript = `
       container.style.display = 'none';
       toggle.textContent = '▼ Show';
     }
+  }
+
+
+  function handleInstallSui() {
+    const method = document.getElementById('installMethodSelector').value;
+    setStatusMessage('Starting installation...');
+    vscode.postMessage({ command: 'install-sui', method });
+  }
+
+  function handleUpdateSui(method) {
+    setStatusMessage('Starting update...');
+    vscode.postMessage({ command: 'update-sui', method: method === 'none' ? undefined : method });
   }
 
   function toggleCoinTools() {
@@ -1112,5 +1132,7 @@ export const webviewScript = `
   window.copyCoinType = copyCoinType;
   window.toggleCoinPortfolio = toggleCoinPortfolio;
   window.setStatusMessage = setStatusMessage;
+  window.handleInstallSui = handleInstallSui;
+  window.handleUpdateSui = handleUpdateSui;
 `;
 

@@ -166,6 +166,36 @@ export const webviewStyles = `
     min-height: 24px;
   }
 
+  .toggle-btn,
+  .gas-coins-toggle,
+  .import-wallet-toggle,
+  .coin-objects-toggle,
+  .coin-portfolio-toggle {
+    background: linear-gradient(135deg, var(--vscode-button-background) 0%, var(--vscode-button-secondaryBackground) 100%);
+    color: var(--vscode-button-foreground);
+    border: 1px solid var(--vscode-button-border, transparent);
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: inherit;
+  }
+
+  .toggle-btn:hover,
+  .gas-coins-toggle:hover,
+  .import-wallet-toggle:hover,
+  .coin-objects-toggle:hover,
+  .coin-portfolio-toggle:hover {
+    background: linear-gradient(135deg, var(--vscode-button-hoverBackground) 0%, var(--vscode-button-secondaryHoverBackground) 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  }
+
   /* Wallet Section - Clean Professional Design */
   .wallet-section {
     background: linear-gradient(135deg, var(--vscode-sideBar-background) 0%, var(--vscode-editor-background) 100%);
@@ -514,28 +544,6 @@ export const webviewStyles = `
     font-size: 11px;
   }
 
-  .gas-coins-toggle {
-    background: linear-gradient(135deg, var(--vscode-button-background) 0%, var(--vscode-button-secondaryBackground) 100%);
-    border: 1px solid var(--vscode-button-border, transparent);
-    color: var(--vscode-button-foreground);
-    cursor: pointer;
-    font-size: 11px;
-    font-weight: 500;
-    padding: 4px 8px;
-    border-radius: 4px;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    font-family: var(--vscode-font-family), -apple-system, BlinkMacSystemFont, sans-serif;
-  }
-
-  .gas-coins-toggle:hover {
-    background: linear-gradient(135deg, var(--vscode-button-hoverBackground) 0%, var(--vscode-button-secondaryHoverBackground) 100%);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
   .gas-coins-container {
     max-height: 120px;
     overflow-y: auto;
@@ -656,21 +664,6 @@ export const webviewStyles = `
     margin-bottom: 4px;
     font-size: 11px;
     color: var(--vscode-descriptionForeground);
-  }
-
-  .gas-coins-toggle {
-    background: none;
-    border: none;
-    color: #ffd166; /* brighter for dark mode */
-    cursor: pointer;
-    font-size: 11px;
-    padding: 2px 4px;
-    border-radius: 2px;
-    transition: background-color 0.2s ease;
-  }
-
-  .gas-coins-toggle:hover {
-    background-color: rgba(255, 209, 102, 0.12);
   }
 
   .collapsed .gas-coins-container {
@@ -868,23 +861,6 @@ export const webviewStyles = `
     letter-spacing: 0.3px;
   }
 
-  .coin-objects-toggle {
-    background: linear-gradient(135deg, var(--vscode-button-background) 0%, var(--vscode-button-secondaryBackground) 100%);
-    border: 1px solid var(--vscode-button-border, transparent);
-    color: var(--vscode-button-foreground);
-    cursor: pointer;
-    font-size: 9px;
-    font-weight: 500;
-    padding: 3px 6px;
-    border-radius: 3px;
-    transition: all 0.2s ease;
-  }
-
-  .coin-objects-toggle:hover {
-    background: linear-gradient(135deg, var(--vscode-button-hoverBackground) 0%, var(--vscode-button-secondaryHoverBackground) 100%);
-    transform: translateY(-1px);
-  }
-
   .coin-objects-container {
     display: flex;
     flex-direction: column;
@@ -966,28 +942,6 @@ export const webviewStyles = `
   .import-wallet-title::before {
     content: "🔑";
     font-size: 11px;
-  }
-
-  .import-wallet-toggle {
-    background: linear-gradient(135deg, var(--vscode-button-background) 0%, var(--vscode-button-secondaryBackground) 100%);
-    border: 1px solid var(--vscode-button-border, transparent);
-    color: var(--vscode-button-foreground);
-    cursor: pointer;
-    font-size: 11px;
-    font-weight: 500;
-    padding: 4px 8px;
-    border-radius: 4px;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    font-family: var(--vscode-font-family), -apple-system, BlinkMacSystemFont, sans-serif;
-  }
-
-  .import-wallet-toggle:hover {
-    background: linear-gradient(135deg, var(--vscode-button-hoverBackground) 0%, var(--vscode-button-secondaryHoverBackground) 100%);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   .import-wallet-form {
@@ -1091,28 +1045,6 @@ export const webviewStyles = `
   .coin-portfolio-title::before {
     content: "💰";
     font-size: 11px;
-  }
-
-  .coin-portfolio-toggle {
-    background: linear-gradient(135deg, var(--vscode-button-background) 0%, var(--vscode-button-secondaryBackground) 100%);
-    border: 1px solid var(--vscode-button-border, transparent);
-    color: var(--vscode-button-foreground);
-    cursor: pointer;
-    font-size: 11px;
-    font-weight: 500;
-    padding: 4px 8px;
-    border-radius: 4px;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    font-family: var(--vscode-font-family), -apple-system, BlinkMacSystemFont, sans-serif;
-  }
-
-  .coin-portfolio-toggle:hover {
-    background: linear-gradient(135deg, var(--vscode-button-hoverBackground) 0%, var(--vscode-button-secondaryHoverBackground) 100%);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   #coinPortfolioContainer {
@@ -1261,19 +1193,6 @@ export const webviewStyles = `
     margin-top: 8px;
     font-size: 11px;
     color: var(--vscode-foreground);
-  }
-
-  .coin-portfolio-toggle {
-    background: none;
-    border: none;
-    color: var(--vscode-button-foreground);
-    cursor: pointer;
-    font-size: 11px;
-    padding: 2px 6px;
-  }
-
-  .coin-portfolio-toggle:hover {
-    color: var(--vscode-button-hoverBackground);
   }
 
   #coinPortfolioContainer {

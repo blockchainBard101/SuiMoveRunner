@@ -17,20 +17,63 @@ export function generateStatusBar(): string {
   `;
 }
 
-export function generateSuiVersionSection(params: WebviewParams): string {
-  const { isSuiOutdated, suiVersion, latestSuiVersion } = params;
+export function generateSuiStatusSection(params: WebviewParams): string {
+  const { isSuiInstalled, installMethod, suiVersion, latestSuiVersion, isSuiOutdated, osPlatform } = params;
+
+  if (!isSuiInstalled) {
+    // Show Setup Helper
+    const options = [
+      { id: 'suiup', name: 'suiup (Recommended)', os: ['darwin', 'linux', 'win32'] },
+      { id: 'brew', name: 'Homebrew', os: ['darwin', 'linux'] },
+      { id: 'choco', name: 'Chocolatey', os: ['win32'] },
+      { id: 'binary', name: 'Pre-built Binaries', os: ['darwin', 'linux', 'win32'] },
+      { id: 'source', name: 'Build from Source', os: ['darwin', 'linux', 'win32'] },
+    ].filter(opt => opt.os.includes(osPlatform || ''));
+
+    const selectOptions = options.map(opt => `<option value="${opt.id}">${opt.name}</option>`).join('');
+
+    return `
+      <div class="section setup-section" style="background-color: var(--vscode-notifications-infoBackground); border-left: 4px solid var(--vscode-notifications-infoBorder); padding: 12px; border-radius: 4px; margin-bottom: 12px;">
+        <div class="section-title" style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 16px;">🚀</span>
+          <span>Sui CLI Not Found</span>
+        </div>
+        <div style="font-size: 11px; margin-bottom: 12px; opacity: 0.9;">
+          Install the Sui CLI to start building. We recommend using <b>suiup</b>.
+        </div>
+        <div class="input-group">
+          <label class="input-label">Installation Method</label>
+          <select id="installMethodSelector" style="width: 100%; margin-bottom: 8px;">
+            ${selectOptions}
+          </select>
+        </div>
+        <button id="installSuiBtn" class="btn-primary" style="width: 100%;" onclick="handleInstallSui()">Install Sui CLI</button>
+      </div>
+    `;
+  }
+
+  // If installed, show version and update option
+  const methodMap: any = {
+    suiup: 'suiup',
+    homebrew: 'Homebrew',
+    chocolatey: 'Chocolatey',
+    source: 'Built from Source',
+    binary: 'Binary'
+  };
+  const methodName = methodMap[installMethod || 'none'] || 'Unknown';
 
   return `
     <div class="section" style="background-color: ${isSuiOutdated ? 'var(--vscode-inputValidation-errorBackground)' : 'var(--vscode-inputValidation-infoBackground)'}; border-color: ${isSuiOutdated ? 'var(--vscode-inputValidation-errorBorder)' : 'var(--vscode-inputValidation-infoBorder)'};">
       <div>
-        <div class="section-title" style="color: ${isSuiOutdated ? 'var(--vscode-inputValidation-errorForeground)' : 'var(--vscode-inputValidation-infoForeground)'}; margin-bottom: 4px;">
-          ${isSuiOutdated ? '⚠️ Sui CLI Outdated' : '✅ Sui CLI Up to Date'}
+        <div class="section-title" style="color: ${isSuiOutdated ? 'var(--vscode-inputValidation-errorForeground)' : 'var(--vscode-inputValidation-infoForeground)'}; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
+          <span>${isSuiOutdated ? '⚠️ Sui CLI Outdated' : '✅ Sui CLI Up to Date'}</span>
+          <span style="font-size: 9px; opacity: 0.8; font-weight: normal; background: rgba(0,0,0,0.1); padding: 2px 4px; border-radius: 3px;">via ${methodName}</span>
         </div>
         <div style="font-size: 11px; color: ${isSuiOutdated ? 'var(--vscode-inputValidation-errorForeground)' : 'var(--vscode-inputValidation-infoForeground)'}; margin-bottom: 8px;">
           Current: ${suiVersion} | Latest: ${latestSuiVersion}
         </div>
         ${isSuiOutdated ?
-      '<button id="updateSuiBtn" class="btn-primary" style="background-color: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer;">Update Sui CLI</button>' :
+      `<button id="updateSuiBtn" class="btn-primary" onclick="handleUpdateSui('${installMethod}')">Update via ${methodName}</button>` :
       '<div style="font-size: 11px; color: var(--vscode-inputValidation-infoForeground); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;"><span>✓</span> <span>All up to date!</span></div>'
     }
       </div>

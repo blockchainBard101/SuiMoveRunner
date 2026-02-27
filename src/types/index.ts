@@ -50,6 +50,9 @@ export interface WebviewParams {
     suiVersion?: string;
     latestSuiVersion?: string;
     isSuiOutdated?: boolean;
+    isSuiInstalled?: boolean;
+    installMethod?: "suiup" | "homebrew" | "chocolatey" | "binary" | "source" | "none";
+    osPlatform?: string;
     coinPortfolio?: CoinPortfolio | null;
     foundMoveProjects?: MoveProject[];
     activeMoveProjectRoot?: string;
