@@ -366,7 +366,10 @@ export function generateWalletSection(params: WebviewParams): string {
       <div class="wallet-info-grid">
         <div class="wallet-info-card">
           <div class="wallet-info-label">Wallet Address</div>
-          <div id="walletAddress" class="wallet-address" title="Click to copy" data-full-address="${activeWallet || ''}">${shortWallet}</div>
+          <div id="walletAddress" class="wallet-address" title="Click to copy" data-full-address="${activeWallet || ''}">
+            <span class="wallet-address-text">${shortWallet}</span>
+            <span class="wallet-address-icon">${getIcon(ICONS.COPY)}</span>
+          </div>
         </div>
         
         <div class="wallet-balance">

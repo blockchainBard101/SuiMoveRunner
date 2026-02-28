@@ -137,8 +137,8 @@ export class PackageController extends BaseController {
                     let moveTomlContent = fs.readFileSync(moveTomlPath, "utf-8");
                     let changed = false;
 
-                    // Inject chain-id into [environments] section
-                    if (activeEnv) {
+                    // Inject chain-id into [environments] section only for ephemeral networks
+                    if (activeEnv && isEphemeralEnv) {
                         const chainId = await this.state.getChainIdentifier();
                         if (chainId) {
                             const result = surgicalUpdateToml(moveTomlContent, "environments", activeEnv, chainId, true);

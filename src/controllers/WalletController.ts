@@ -43,9 +43,31 @@ export class WalletController extends BaseController {
                 vscode.window.showWarningMessage("Address creation cancelled.");
                 return;
             }
-            const output = await runCommand(
-                `sui client new-address ${keyScheme} --json`
-            );
+
+            const alias = await vscode.window.showInputBox({
+                prompt: "Enter an optional alias for the new address (leave blank for none)",
+                placeHolder: "e.g., my_wallet_1",
+                validateInput: (text) => {
+                    if (text && !/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(text)) {
+                        return "The alias must start with a letter and can contain only letters, digits, hyphens (-), or underscores (_)";
+                    }
+                    return null; // Valid
+                }
+            });
+
+            if (alias === undefined) {
+                // User pressed Esc to cancel the prompt
+                vscode.window.showWarningMessage("Address creation cancelled.");
+                return;
+            }
+
+            let cmd = `sui client new-address ${keyScheme}`;
+            if (alias.trim() !== "") {
+                cmd += ` ${alias.trim()}`;
+            }
+            cmd += ` --json`;
+
+            const output = await runCommand(cmd);
             const parsed = JSON.parse(output);
 
             await this.state.refreshWallets();

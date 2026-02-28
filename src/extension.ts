@@ -17,14 +17,6 @@ export function activate(context: vscode.ExtensionContext) {
     )
   );
 
-  // Register Commands
-  // These specific commands were originally just calling methods on sidebarInstance or placeholders.
-  // We can keep them as placeholders or use them to trigger actions via the provider/handler if accessible.
-  // However, the original code mostly used message passing from the webview.
-  // The command palette commands existed but mostly showed information messages or were not fully wired to logic 
-  // without the webview context. 
-  // We will preserve them as basic triggers or information for now to match behavior, 
-  // or point them to open the sidebar.
 
   context.subscriptions.push(
     vscode.commands.registerCommand("suimoverunner.createMovePackage", () => {

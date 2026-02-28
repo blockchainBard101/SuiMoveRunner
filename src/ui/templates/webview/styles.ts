@@ -279,7 +279,8 @@ export const webviewStyles = `
   .wallet-address {
     background: linear-gradient(135deg, var(--vscode-textCodeBlock-background) 0%, var(--vscode-editor-background) 100%);
     color: var(--vscode-textPreformat-foreground);
-    padding: 6px 8px;
+    padding: 6px 8px 6px 8px;
+    padding-right: 24px;
     border-radius: 4px;
     font-family: var(--vscode-editor-font-family, monospace);
     font-size: 11px;
@@ -298,7 +299,17 @@ export const webviewStyles = `
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
   }
 
-  .wallet-address:hover::after {
+  .wallet-address-icon {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    font-size: 12px;
+  }
+
+  .wallet-address:hover .wallet-address-icon {
     opacity: 1;
   }
 
