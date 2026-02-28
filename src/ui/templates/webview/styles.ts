@@ -90,6 +90,11 @@ export const webviewStyles = `
     transition: border-color 0.2s ease;
   }
 
+  option {
+    background-color: var(--vscode-dropdown-background);
+    color: var(--vscode-dropdown-foreground);
+  }
+
   select:focus, input:focus {
     outline: none;
     border-color: var(--vscode-focusBorder);
@@ -166,6 +171,36 @@ export const webviewStyles = `
     min-height: 24px;
   }
 
+  .toggle-btn,
+  .gas-coins-toggle,
+  .import-wallet-toggle,
+  .coin-objects-toggle,
+  .coin-portfolio-toggle {
+    background: linear-gradient(135deg, var(--vscode-button-background) 0%, var(--vscode-button-secondaryBackground) 100%);
+    color: var(--vscode-button-foreground);
+    border: 1px solid var(--vscode-button-border, transparent);
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: inherit;
+  }
+
+  .toggle-btn:hover,
+  .gas-coins-toggle:hover,
+  .import-wallet-toggle:hover,
+  .coin-objects-toggle:hover,
+  .coin-portfolio-toggle:hover {
+    background: linear-gradient(135deg, var(--vscode-button-hoverBackground) 0%, var(--vscode-button-secondaryHoverBackground) 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  }
+
   /* Wallet Section - Clean Professional Design */
   .wallet-section {
     background: linear-gradient(135deg, var(--vscode-sideBar-background) 0%, var(--vscode-editor-background) 100%);
@@ -191,12 +226,7 @@ export const webviewStyles = `
     color: var(--vscode-foreground);
     display: flex;
     align-items: center;
-    gap: 6px;
-  }
-
-  .wallet-title::before {
-    content: "👤";
-    font-size: 14px;
+    gap: 8px;
   }
 
   .wallet-status {
@@ -249,7 +279,8 @@ export const webviewStyles = `
   .wallet-address {
     background: linear-gradient(135deg, var(--vscode-textCodeBlock-background) 0%, var(--vscode-editor-background) 100%);
     color: var(--vscode-textPreformat-foreground);
-    padding: 6px 8px;
+    padding: 6px 8px 6px 8px;
+    padding-right: 24px;
     border-radius: 4px;
     font-family: var(--vscode-editor-font-family, monospace);
     font-size: 11px;
@@ -268,18 +299,17 @@ export const webviewStyles = `
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
   }
 
-  .wallet-address::after {
-    content: "📋";
+  .wallet-address-icon {
     position: absolute;
     right: 8px;
     top: 50%;
     transform: translateY(-50%);
     opacity: 0;
     transition: opacity 0.2s ease;
-    font-size: 10px;
+    font-size: 12px;
   }
 
-  .wallet-address:hover::after {
+  .wallet-address:hover .wallet-address-icon {
     opacity: 1;
   }
 
@@ -419,10 +449,43 @@ export const webviewStyles = `
   }
 
   /* Icons */
-  .icon {
+  .ant-icon {
     width: 14px;
     height: 14px;
-    opacity: 0.8;
+    display: inline-block;
+    vertical-align: middle;
+    flex-shrink: 0;
+    transition: transform 0.2s ease, color 0.2s ease;
+  }
+
+  .icon-small {
+    width: 12px;
+    height: 12px;
+  }
+
+  .icon-large {
+    width: 18px;
+    height: 18px;
+  }
+
+  .icon-success {
+    color: var(--vscode-terminal-ansiGreen);
+  }
+
+  .icon-warning {
+    color: var(--vscode-notificationsWarning-foreground, #cca700);
+  }
+
+  .icon-error, .icon-danger {
+    color: var(--vscode-errorForeground);
+  }
+
+  .icon-info {
+    color: var(--vscode-notificationsInfo-foreground, #3794ef);
+  }
+
+  .icon-spin {
+    animation: spin 1s linear infinite;
   }
 
   /* Loading state */
@@ -500,40 +563,8 @@ export const webviewStyles = `
     color: var(--vscode-foreground);
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     font-family: var(--vscode-font-family), -apple-system, BlinkMacSystemFont, sans-serif;
-  }
-
-  .gas-coins-title::before {
-    content: "⛽";
-    font-size: 11px;
-  }
-
-  .coin-tools-title::before {
-    content: "🧰";
-    font-size: 11px;
-  }
-
-  .gas-coins-toggle {
-    background: linear-gradient(135deg, var(--vscode-button-background) 0%, var(--vscode-button-secondaryBackground) 100%);
-    border: 1px solid var(--vscode-button-border, transparent);
-    color: var(--vscode-button-foreground);
-    cursor: pointer;
-    font-size: 11px;
-    font-weight: 500;
-    padding: 4px 8px;
-    border-radius: 4px;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    font-family: var(--vscode-font-family), -apple-system, BlinkMacSystemFont, sans-serif;
-  }
-
-  .gas-coins-toggle:hover {
-    background: linear-gradient(135deg, var(--vscode-button-hoverBackground) 0%, var(--vscode-button-secondaryHoverBackground) 100%);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   .gas-coins-container {
@@ -658,21 +689,6 @@ export const webviewStyles = `
     color: var(--vscode-descriptionForeground);
   }
 
-  .gas-coins-toggle {
-    background: none;
-    border: none;
-    color: #ffd166; /* brighter for dark mode */
-    cursor: pointer;
-    font-size: 11px;
-    padding: 2px 4px;
-    border-radius: 2px;
-    transition: background-color 0.2s ease;
-  }
-
-  .gas-coins-toggle:hover {
-    background-color: rgba(255, 209, 102, 0.12);
-  }
-
   .collapsed .gas-coins-container {
     display: none;
   }
@@ -755,13 +771,7 @@ export const webviewStyles = `
     color: var(--vscode-foreground);
     display: flex;
     align-items: center;
-    gap: 6px;
-  }
-
-  .coin-symbol::before {
-    content: '🪙';
-    font-size: 14px;
-    opacity: 0.8;
+    gap: 8px;
   }
 
   .coin-name {
@@ -868,23 +878,6 @@ export const webviewStyles = `
     letter-spacing: 0.3px;
   }
 
-  .coin-objects-toggle {
-    background: linear-gradient(135deg, var(--vscode-button-background) 0%, var(--vscode-button-secondaryBackground) 100%);
-    border: 1px solid var(--vscode-button-border, transparent);
-    color: var(--vscode-button-foreground);
-    cursor: pointer;
-    font-size: 9px;
-    font-weight: 500;
-    padding: 3px 6px;
-    border-radius: 3px;
-    transition: all 0.2s ease;
-  }
-
-  .coin-objects-toggle:hover {
-    background: linear-gradient(135deg, var(--vscode-button-hoverBackground) 0%, var(--vscode-button-secondaryHoverBackground) 100%);
-    transform: translateY(-1px);
-  }
-
   .coin-objects-container {
     display: flex;
     flex-direction: column;
@@ -959,35 +952,8 @@ export const webviewStyles = `
     color: var(--vscode-foreground);
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
     font-family: var(--vscode-font-family), -apple-system, BlinkMacSystemFont, sans-serif;
-  }
-
-  .import-wallet-title::before {
-    content: "🔑";
-    font-size: 11px;
-  }
-
-  .import-wallet-toggle {
-    background: linear-gradient(135deg, var(--vscode-button-background) 0%, var(--vscode-button-secondaryBackground) 100%);
-    border: 1px solid var(--vscode-button-border, transparent);
-    color: var(--vscode-button-foreground);
-    cursor: pointer;
-    font-size: 11px;
-    font-weight: 500;
-    padding: 4px 8px;
-    border-radius: 4px;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    font-family: var(--vscode-font-family), -apple-system, BlinkMacSystemFont, sans-serif;
-  }
-
-  .import-wallet-toggle:hover {
-    background: linear-gradient(135deg, var(--vscode-button-hoverBackground) 0%, var(--vscode-button-secondaryHoverBackground) 100%);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   .import-wallet-form {
@@ -1084,35 +1050,8 @@ export const webviewStyles = `
     color: var(--vscode-foreground);
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
     font-family: var(--vscode-font-family), -apple-system, BlinkMacSystemFont, sans-serif;
-  }
-
-  .coin-portfolio-title::before {
-    content: "💰";
-    font-size: 11px;
-  }
-
-  .coin-portfolio-toggle {
-    background: linear-gradient(135deg, var(--vscode-button-background) 0%, var(--vscode-button-secondaryBackground) 100%);
-    border: 1px solid var(--vscode-button-border, transparent);
-    color: var(--vscode-button-foreground);
-    cursor: pointer;
-    font-size: 11px;
-    font-weight: 500;
-    padding: 4px 8px;
-    border-radius: 4px;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    font-family: var(--vscode-font-family), -apple-system, BlinkMacSystemFont, sans-serif;
-  }
-
-  .coin-portfolio-toggle:hover {
-    background: linear-gradient(135deg, var(--vscode-button-hoverBackground) 0%, var(--vscode-button-secondaryHoverBackground) 100%);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   #coinPortfolioContainer {
@@ -1231,24 +1170,8 @@ export const webviewStyles = `
     margin-bottom: 8px;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
     font-family: var(--vscode-font-family), -apple-system, BlinkMacSystemFont, sans-serif;
-  }
-
-  .coin-tools-section-title::before {
-    font-size: 11px;
-  }
-
-  .merge-title::before {
-    content: "🪙";
-  }
-
-  .split-title::before {
-    content: "✂️";
-  }
-
-  .transfer-title::before {
-    content: "📤";
   }
 
   /* Legacy coin portfolio styles for backward compatibility */
@@ -1261,19 +1184,6 @@ export const webviewStyles = `
     margin-top: 8px;
     font-size: 11px;
     color: var(--vscode-foreground);
-  }
-
-  .coin-portfolio-toggle {
-    background: none;
-    border: none;
-    color: var(--vscode-button-foreground);
-    cursor: pointer;
-    font-size: 11px;
-    padding: 2px 6px;
-  }
-
-  .coin-portfolio-toggle:hover {
-    color: var(--vscode-button-hoverBackground);
   }
 
   #coinPortfolioContainer {

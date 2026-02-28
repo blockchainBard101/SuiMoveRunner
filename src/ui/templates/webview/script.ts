@@ -1,7 +1,21 @@
-import { ArgumentPlaceholder } from './types';
+// Types are implicitly handled in the string injection
 
 export const webviewScript = `
-  const vscode = acquireVsCodeApi();
+  let vscode;
+  try {
+    vscode = acquireVsCodeApi();
+  } catch (e) { }
+
+  window.onerror = function(msg, url, line, col, error) {
+    if (vscode) {
+      vscode.postMessage({
+        command: 'debug-log',
+        message: \`JS Error: \${msg} at \${line}:\${col}. Error: \${error?.stack}\`
+      });
+    }
+    return false;
+  };
+  
   const argsMapping = \${JSON.stringify(argsMapping)};
 
   // Event delegation for selectMoveProjectBtn (works even when button is recreated)
@@ -53,15 +67,36 @@ export const webviewScript = `
     const section = document.getElementById('gasCoinsSection');
     const container = section.querySelector('.gas-coins-container');
     const toggle = section.querySelector('.gas-coins-toggle');
+    const toggleText = toggle ? toggle.querySelector('.toggle-text') : null;
+    const icon = toggle ? toggle.querySelector('.toggle-icon') : null;
     
     if (container.style.display === 'none') {
       container.style.display = 'block';
-      toggle.textContent = '▲ Hide';
+      if (toggleText) toggleText.textContent = 'Hide';
+      if (icon) icon.style.transform = 'rotate(180deg)';
       section.classList.remove('collapsed');
     } else {
       container.style.display = 'none';
-      toggle.textContent = '▼ Show';
+      if (toggleText) toggleText.textContent = 'Show';
+      if (icon) icon.style.transform = 'rotate(0deg)';
       section.classList.add('collapsed');
+    }
+  }
+
+  function toggleSection(id) {
+    const container = document.getElementById(id);
+    const toggle = container.parentElement.querySelector('.toggle-btn');
+    const toggleText = toggle ? toggle.querySelector('.toggle-text') : null;
+    const icon = toggle ? toggle.querySelector('.toggle-icon') : null;
+
+    if (container.style.display === 'none') {
+      container.style.display = 'block';
+      if (toggleText) toggleText.textContent = 'Hide';
+      if (icon) icon.style.transform = 'rotate(180deg)';
+    } else {
+      container.style.display = 'none';
+      if (toggleText) toggleText.textContent = 'Show';
+      if (icon) icon.style.transform = 'rotate(0deg)';
     }
   }
 
@@ -69,16 +104,32 @@ export const webviewScript = `
     const container = document.getElementById('importWalletContainer');
     const toggle = document.querySelector('.import-wallet-toggle');
     if (!container || !toggle) return;
+    const toggleText = toggle.querySelector('.toggle-text');
+    const icon = toggle.querySelector('.toggle-icon');
 
     if (container.style.display === 'none') {
       container.style.display = 'block';
-      toggle.textContent = '▲ Hide';
+      if (toggleText) toggleText.textContent = 'Hide';
+      if (icon) icon.style.transform = 'rotate(180deg)';
       // Re-validate on open to enable/disable button properly
       try { validateImportForm(); } catch {}
     } else {
       container.style.display = 'none';
-      toggle.textContent = '▼ Show';
+      if (toggleText) toggleText.textContent = 'Show';
+      if (icon) icon.style.transform = 'rotate(0deg)';
     }
+  }
+
+
+  function handleInstallSui() {
+    const method = document.getElementById('installMethodSelector').value;
+    setStatusMessage('Starting installation...');
+    vscode.postMessage({ command: 'install-sui', method });
+  }
+
+  function handleUpdateSui(method) {
+    setStatusMessage('Starting update...');
+    vscode.postMessage({ command: 'update-sui', method: method === 'none' ? undefined : method });
   }
 
   function toggleCoinTools() {
@@ -86,10 +137,13 @@ export const webviewScript = `
     const container = document.getElementById('coinToolsContainer');
     const toggle = section ? section.querySelector('.gas-coins-toggle') : null;
     if (!container || !toggle) return;
+    const toggleText = toggle.querySelector('.toggle-text');
+    const icon = toggle.querySelector('.toggle-icon');
 
     if (container.style.display === 'none') {
       container.style.display = 'block';
-      toggle.textContent = '▲ Hide';
+      if (toggleText) toggleText.textContent = 'Hide';
+      if (icon) icon.style.transform = 'rotate(180deg)';
       section.classList.remove('collapsed');
       // Re-validate forms on open
       try { validateMergeForm(); } catch {}
@@ -97,7 +151,8 @@ export const webviewScript = `
       try { validateTransferForm(); } catch {}
     } else {
       container.style.display = 'none';
-      toggle.textContent = '▼ Show';
+      if (toggleText) toggleText.textContent = 'Show';
+      if (icon) icon.style.transform = 'rotate(0deg)';
       section.classList.add('collapsed');
     }
   }
@@ -438,6 +493,93 @@ export const webviewScript = `
   function sendReset() {
     setStatusMessage('Resetting deployment...');
     vscode.postMessage({ command: 'reset-deployment' });
+  }
+
+  function sendUpdateDeps() {
+    setStatusMessage('Updating dependencies...');
+    vscode.postMessage({ command: 'update-deps' });
+  }
+
+  function sendPublishWithDeps() {
+    setStatusMessage('Publishing with dependencies...');
+    vscode.postMessage({ command: 'publish-with-deps' });
+  }
+
+  function sendDumpBytecode() {
+    setStatusMessage('Dumping bytecode...');
+    vscode.postMessage({ command: 'dump-bytecode' });
+  }
+
+  function sendViewPublishedToml() {
+    setStatusMessage('Fetching Published.toml...');
+    vscode.postMessage({ command: 'view-published-toml' });
+  }
+
+  function sendAddDependency() {
+    const depType = document.getElementById('depTypeSelector').value;
+    const name = document.getElementById('depAlias').value.trim();
+    let value = document.getElementById('depValue').value.trim();
+    const network = document.getElementById('mvrNetwork').value;
+    const subdir = document.getElementById('depSubdir').value.trim();
+    const rev = document.getElementById('depRev').value.trim();
+
+    if (!name || !value) {
+      setStatusMessage('Please enter both alias and value/url');
+      return;
+    }
+
+    // Proactive cleaning: strip common command prefixes if pasted
+    if (depType === 'mvr') {
+      value = value.replace(/^(sui\s+)?mvr\s+add\s+/i, '');
+    }
+
+    setStatusMessage('Adding dependency...');
+    vscode.postMessage({ 
+      command: 'add-dependency', 
+      depType, 
+      name, 
+      value,
+      network: depType === 'mvr' ? network : undefined,
+      subdir: subdir || undefined, 
+      rev: rev || undefined 
+    });
+  }
+
+  function updateDepForm() {
+    const type = document.getElementById('depTypeSelector').value;
+    const label = document.getElementById('depValueLabel');
+    const mvrOptions = document.getElementById('mvrOptions');
+    const gitOptions = document.getElementById('gitOptions');
+    const valueInput = document.getElementById('depValue');
+
+    if (type === 'mvr') {
+      label.textContent = 'MVR Name (@scope/pkg)';
+      valueInput.placeholder = 'e.g., @potatoes/ascii';
+      mvrOptions.style.display = 'block';
+      gitOptions.style.display = 'none';
+    } else if (type === 'git') {
+      label.textContent = 'Git Repository URL';
+      valueInput.placeholder = 'e.g., https://github.com/...';
+      mvrOptions.style.display = 'none';
+      gitOptions.style.display = 'block';
+    } else if (type === 'local') {
+      label.textContent = 'Local File Path';
+      valueInput.placeholder = 'e.g., ../my_shared_lib';
+      mvrOptions.style.display = 'none';
+      gitOptions.style.display = 'none';
+    } else if (type === 'system') {
+      label.textContent = 'System Package Name';
+      valueInput.placeholder = 'e.g., Sui';
+      mvrOptions.style.display = 'none';
+      gitOptions.style.display = 'none';
+    }
+  }
+
+  function copyValue(val) {
+    navigator.clipboard.writeText(val).then(() => {
+      setStatusMessage('Copied to clipboard!');
+      setTimeout(() => setStatusMessage(''), 2000);
+    });
   }
 
   function extractOptionType(type) {
@@ -855,10 +997,6 @@ export const webviewScript = `
       validateImportForm();
     });
 
-    // Initial validation
-    validateMergeForm();
-    validateSplitForm();
-    validateTransferForm();
     validateImportForm();
   });
 
@@ -946,13 +1084,17 @@ export const webviewScript = `
   function toggleCoinObjects(coinType) {
     const container = document.getElementById('coin-objects-' + coinType);
     const toggle = container.previousElementSibling.querySelector('.coin-objects-toggle');
+    const toggleText = toggle ? toggle.querySelector('.toggle-text') : null;
+    const icon = toggle ? toggle.querySelector('.toggle-icon') : null;
     
     if (container.style.display === 'none') {
       container.style.display = 'block';
-      toggle.textContent = '▲ Hide';
+      if (toggleText) toggleText.textContent = 'Hide';
+      if (icon) icon.style.transform = 'rotate(180deg)';
     } else {
       container.style.display = 'none';
-      toggle.textContent = '▼ Show';
+      if (toggleText) toggleText.textContent = 'Show';
+      if (icon) icon.style.transform = 'rotate(0deg)';
     }
   }
 
@@ -977,13 +1119,48 @@ export const webviewScript = `
   function toggleCoinPortfolio() {
     const container = document.getElementById('coinPortfolioContainer');
     const toggle = document.querySelector('.coin-portfolio-toggle');
+    const toggleText = toggle ? toggle.querySelector('.toggle-text') : null;
+    const icon = toggle ? toggle.querySelector('.toggle-icon') : null;
+    
     if (container.style.display === 'none') {
       container.style.display = 'block';
-      toggle.textContent = '▲ Hide';
+      if (toggleText) toggleText.textContent = 'Hide';
+      if (icon) icon.style.transform = 'rotate(180deg)';
     } else {
       container.style.display = 'none';
-      toggle.textContent = '▼ Show';
+      if (toggleText) toggleText.textContent = 'Show';
+      if (icon) icon.style.transform = 'rotate(0deg)';
     }
   }
+  // Expose functions to global scope for inline onclick/onchange handlers
+  window.sendBuild = sendBuild;
+  window.sendPublish = sendPublish;
+  window.sendUpgrade = sendUpgrade;
+  window.sendTest = sendTest;
+  window.sendReset = sendReset;
+  window.sendUpdateDeps = sendUpdateDeps;
+  window.sendPublishWithDeps = sendPublishWithDeps;
+  window.sendDumpBytecode = sendDumpBytecode;
+  window.sendViewPublishedToml = sendViewPublishedToml;
+  window.sendAddDependency = sendAddDependency;
+  window.updateDepForm = updateDepForm;
+  window.mvrNetwork = document.getElementById('mvrNetwork'); // Optional, mainly for debugging if needed
+  window.copyValue = copyValue;
+  window.sendCall = sendCall;
+  window.toggleSection = toggleSection;
+  window.toggleGasCoins = toggleGasCoins;
+  window.toggleImportWallet = toggleImportWallet;
+  window.toggleCoinTools = toggleCoinTools;
+  window.copyGasCoinId = copyGasCoinId;
+  window.sendMergeCoin = sendMergeCoin;
+  window.sendSplitCoin = sendSplitCoin;
+  window.sendTransferCoin = sendTransferCoin;
+  window.toggleCoinObjects = toggleCoinObjects;
+  window.copyCoinObjectId = copyCoinObjectId;
+  window.copyCoinType = copyCoinType;
+  window.toggleCoinPortfolio = toggleCoinPortfolio;
+  window.setStatusMessage = setStatusMessage;
+  window.handleInstallSui = handleInstallSui;
+  window.handleUpdateSui = handleUpdateSui;
 `;
 

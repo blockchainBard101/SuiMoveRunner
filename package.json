@@ -3,7 +3,7 @@
   "displayName": "Sui Move Runner",
   "description": "Deploy & Interact with Move Smart Contracts on Sui from the Sidebar",
   "publisher": "blockchainBard",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "repository": "https://github.com/blockchainBard101/SuiMoveRunner.git",
   "icon": "media/icon.png",
   "engines": {
@@ -78,6 +78,7 @@
     "typescript": "^5.8.3"
   },
   "dependencies": {
+    "@ant-design/icons-svg": "^4.4.2",
     "node-fetch": "^2.7.0",
     "toml": "^3.0.0",
     "tomlify-j0.4": "^3.0.0"
