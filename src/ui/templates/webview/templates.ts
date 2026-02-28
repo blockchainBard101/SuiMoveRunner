@@ -347,7 +347,7 @@ export function generateWalletSection(params: WebviewParams): string {
   return `
     <div class="wallet-section">
       <div class="wallet-header">
-        <div class="wallet-title">Wallet</div>
+        <div class="wallet-title">${getIcon(ICONS.USER)} Wallet</div>
         <div class="wallet-status">Connected</div>
       </div>
       

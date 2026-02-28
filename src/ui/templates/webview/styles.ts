@@ -90,6 +90,11 @@ export const webviewStyles = `
     transition: border-color 0.2s ease;
   }
 
+  option {
+    background-color: var(--vscode-dropdown-background);
+    color: var(--vscode-dropdown-foreground);
+  }
+
   select:focus, input:focus {
     outline: none;
     border-color: var(--vscode-focusBorder);

@@ -233,6 +233,20 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         if (typeof obj === "string") {
             return obj;
         }
+
+        // Handle primitive types that might be represented as object keys in JSON-RPC
+        // e.g., {"U8": null}, {"Bool": null}, {"Address": null}
+        const primitiveTypes = [
+            "Bool", "U8", "U16", "U32", "U64",
+            "U128", "U256", "Address", "Signer"
+        ];
+
+        for (const pt of primitiveTypes) {
+            if (obj[pt] !== undefined) {
+                return pt.toLowerCase(); // Returns "u8", "bool", "address", etc.
+            }
+        }
+
         if (obj.Struct && obj.Struct.name !== "TxContext") {
             return this.formatStruct(obj.Struct);
         }
@@ -248,6 +262,26 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         ) {
             return this.formatStruct(obj.MutableReference.Struct);
         }
+        if (obj.Vector) {
+            const inner = this.formatType(obj.Vector);
+            return `vector<${inner || 'unknown'}>`;
+        }
+        if (obj.TypeParameter !== undefined) {
+            return `TypeParameter`;
+        }
+        if (obj.Reference?.TypeParameter !== undefined) {
+            return `TypeParameter`;
+        }
+        if (obj.MutableReference?.TypeParameter !== undefined) {
+            return `TypeParameter`;
+        }
+        if (obj.Reference && typeof obj.Reference === 'string') {
+            return obj.Reference;
+        }
+        if (obj.MutableReference && typeof obj.MutableReference === 'string') {
+            return obj.MutableReference;
+        }
+
         return null;
     }
 
