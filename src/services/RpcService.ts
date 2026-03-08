@@ -204,3 +204,15 @@ export async function getCoinPortfolio(rpcUrl: string, address: string): Promise
         throw error;
     }
 }
+
+export async function dryRunTransactionBlock(rpcUrl: string, txBytes: string): Promise<any> {
+    try {
+        console.log(`Calling dryRunTransactionBlock on ${rpcUrl}`);
+        const result = await makeRpcCall(rpcUrl, "sui_dryRunTransactionBlock", [txBytes]);
+        console.log("Dry run result:", result);
+        return result;
+    } catch (error) {
+        console.error("Failed to dry run transaction block via RPC:", error);
+        throw error;
+    }
+}

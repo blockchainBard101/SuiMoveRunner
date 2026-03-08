@@ -108,6 +108,9 @@ export class MessageHandler {
             case "call":
                 await this.txController.handleCall(message);
                 break;
+            case "dev-inspect":
+                await this.txController.handleDevInspect(message);
+                break;
             case "get-faucet":
                 await this.txController.handleGetFaucet();
                 break;

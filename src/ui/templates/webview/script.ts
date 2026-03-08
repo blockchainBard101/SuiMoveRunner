@@ -656,6 +656,47 @@ export const webviewScript = `
     vscode.postMessage({ command: 'call', pkg, module, func, args, typeArgs });
   }
 
+  function sendDevInspect() {
+    const pkg = document.getElementById('pkg').value;
+    const selected = document.getElementById('functionSelect').selectedOptions[0];
+    
+    if (!selected) {
+      setStatusMessage('Please select a function for Dev Inspect');
+      return;
+    }
+
+    const module = selected.getAttribute('data-mod');
+    const func = selected.value;
+    const key = module + '::' + func;
+    const { typeParams } = argsMapping[key] || { typeParams: [] };
+
+    const argElements = Array.from(document.querySelectorAll('#argsContainer input'));
+    const args = argElements.map(input => {
+      let value = input.value.trim();
+      if (!value && input.placeholder.includes('auto-provided')) {
+        return ''; 
+      }
+      if (input.placeholder.includes('comma-separated') && value) {
+        return value.split(',').map(v => v.trim()).join(' ');
+      }
+      return value;
+    }).filter(arg => arg !== '');
+
+    const typeArgElements = Array.from(document.querySelectorAll('#typeArgsContainer input'));
+    const typeArgs = typeArgElements.map(input => input.value.trim()).filter(arg => arg !== '');
+
+    const btn = document.querySelector('button[onclick="sendDevInspect()"]');
+    if (btn) btn.innerHTML = '⏳ Inspecting...';
+    setStatusMessage('Running Dev Inspect...');
+    const container = document.getElementById('devInspectResults');
+    if (container) {
+      container.style.display = 'block';
+      container.innerHTML = '<div style="color: var(--vscode-descriptionForeground);">Running dev inspect...</div>';
+    }
+    
+    vscode.postMessage({ command: 'dev-inspect', pkg, module, func, args, typeArgs });
+  }
+
   function getArgumentPlaceholderAndDefault(type, index) {
     // Handle the common Clock type - make it readonly
     if (type === '0x2::clock::Clock' || type.includes('clock::Clock')) {
@@ -1075,10 +1116,190 @@ export const webviewScript = `
         resetSelectProjectButton();
         setStatusMessage(message.message || 'Failed to select project');
         break;
+      case 'dev-inspect-result':
+        renderDevInspectResult(message.data);
+        break;
+      case 'dev-inspect-error':
+        renderDevInspectError(message.error);
+        break;
       default:
         break;
     }
   });
+
+  function renderDevInspectResult(data) {
+    const btn = document.querySelector('button[onclick="sendDevInspect()"]');
+    if (btn) btn.innerHTML = '🔍 Dev Inspect';
+
+    const container = document.getElementById('devInspectResults');
+    if (!container) return;
+    container.style.display = 'block';
+
+    if (data.error) {
+      container.innerHTML = '<div style="color: var(--vscode-errorForeground);"><strong>Error:</strong> ' + data.error + '</div>';
+      return;
+    }
+
+    const effects = data.effects || {};
+    const events = data.events || [];
+    const results = data.results || [];
+    
+    // Check status
+    const executionStatus = effects.status?.status || "unknown";
+    const isSuccess = executionStatus === "success";
+    const statusColor = isSuccess ? "var(--vscode-testing-iconPassed)" : "var(--vscode-testing-iconFailed)";
+    
+    let html = '<div style="margin-bottom: 8px; font-size: 13px; border-bottom: 1px solid var(--vscode-widget-border); padding-bottom: 4px;">';
+    html += '<strong>Status:</strong> <span style="color: ' + statusColor + ';">' + 
+            (isSuccess ? 'Success' : 'Failed (' + (effects.status?.error || 'Unknown Error') + ')') + 
+            '</span></div>';
+
+    // Gas Estimation
+    if (effects.gasUsed) {
+      const comp = parseInt(effects.gasUsed.computationCost || 0);
+      const storage = parseInt(effects.gasUsed.storageCost || 0);
+      const rebate = parseInt(effects.gasUsed.storageRebate || 0);
+      const nonRefundable = parseInt(effects.gasUsed.nonRefundableStorageFee || 0);
+      const totalGas = comp + storage - rebate + nonRefundable;
+      
+      html += '<div style="margin-bottom: 8px;"><strong>Estimated Gas:</strong> ' + totalGas + ' MIST ';
+      html += '<span style="font-size: 10px; opacity: 0.7;">(Comp: ' + comp + ', Storage: ' + storage + ', Rebate: ' + rebate + ')</span></div>';
+    }
+
+    // Return Values
+    if (results.length > 0 && results.some(r => r.returnValues && r.returnValues.length > 0)) {
+      html += '<div style="margin-bottom: 4px; color: var(--vscode-terminal-ansiBrightBlue);"><strong>Return Values:</strong></div><ul style="margin: 0 0 8px 16px; padding: 0;">';
+      results.forEach((r, i) => {
+        if (r.returnValues && r.returnValues.length > 0) {
+          r.returnValues.forEach(val => {
+            // val is usually [number[], type]
+            const typeStr = val[1];
+            const bytesArray = val[0];
+            html += '<li><code>' + typeStr + '</code> (Bytes: [' + bytesArray.slice(0, 5).join(',') + (bytesArray.length > 5 ? '...' : '') + '])</li>';
+          });
+        }
+      });
+      html += '</ul>';
+    }
+
+    // Events Emitted
+    if (events.length > 0) {
+      html += '<div style="margin-bottom: 4px; color: var(--vscode-terminal-ansiBrightCyan);"><strong>Events Emitted:</strong> ' + events.length + '</div>';
+      html += '<ul style="margin: 0 0 8px 16px; padding: 0; max-height: 100px; overflow-y: auto;">';
+      events.forEach(e => {
+        const typeBits = (e.type || "").split('::');
+        const shortType = typeBits.length > 2 ? typeBits.slice(-2).join('::') : e.type;
+        html += '<li title="'+ e.type +'"><code>' + shortType + '</code></li>';
+      });
+      html += '</ul>';
+    }
+
+    // Object Changes Overview
+    const objectChanges = data.objectChanges || [];
+    
+    // If we have detailed objectChanges from dry run, use them
+    if (objectChanges.length > 0) {
+      const createdObj = objectChanges.filter(c => c.type === 'created');
+      const mutatedObj = objectChanges.filter(c => c.type === 'mutated');
+      const deletedObj = objectChanges.filter(c => c.type === 'deleted');
+      const publishedObj = objectChanges.filter(c => c.type === 'published');
+      
+      html += '<div style="margin-top: 8px; border-top: 1px solid var(--vscode-widget-border); padding-top: 4px;"><strong>Object Changes:</strong></div>';
+      
+      if (publishedObj.length > 0) {
+        html += '<details style="margin-top: 4px;"><summary style="cursor: pointer; color: var(--vscode-terminal-ansiBrightMagenta);">Published (' + publishedObj.length + ')</summary>';
+        html += '<ul style="margin: 4px 0 4px 16px; padding: 0;">';
+        publishedObj.forEach(obj => {
+          html += '<li title="Package: ' + obj.packageId + '"><code>' + obj.packageId.slice(0, 8) + '...' + obj.packageId.slice(-8) + '</code></li>';
+        });
+        html += '</ul></details>';
+      }
+      
+      if (createdObj.length > 0) {
+        html += '<details style="margin-top: 4px;"><summary style="cursor: pointer; color: var(--vscode-terminal-ansiBrightGreen);">Created (' + createdObj.length + ')</summary>';
+        html += '<ul style="margin: 4px 0 4px 16px; padding: 0;">';
+        createdObj.forEach(obj => {
+          const id = obj.objectId || 'unknown';
+          const typeStr = obj.objectType || 'unknown type';
+          html += '<li title="' + typeStr + '"><code>' + id.slice(0, 8) + '...' + id.slice(-8) + '</code> <div style="font-size: 10px; color: var(--vscode-descriptionForeground); margin-left: 8px;">' + typeStr + '</div></li>';
+        });
+        html += '</ul></details>';
+      }
+      
+      if (mutatedObj.length > 0) {
+        html += '<details style="margin-top: 4px;"><summary style="cursor: pointer; color: var(--vscode-terminal-ansiBrightYellow);">Mutated (' + mutatedObj.length + ')</summary>';
+        html += '<ul style="margin: 4px 0 4px 16px; padding: 0;">';
+        mutatedObj.forEach(obj => {
+          const id = obj.objectId || 'unknown';
+          const typeStr = obj.objectType || 'unknown type';
+          html += '<li title="' + typeStr + '"><code>' + id.slice(0, 8) + '...' + id.slice(-8) + '</code> <div style="font-size: 10px; color: var(--vscode-descriptionForeground); margin-left: 8px;">' + typeStr + '</div></li>';
+        });
+        html += '</ul></details>';
+      }
+      
+      if (deletedObj.length > 0) {
+        html += '<details style="margin-top: 4px;"><summary style="cursor: pointer; color: var(--vscode-terminal-ansiBrightRed);">Deleted (' + deletedObj.length + ')</summary>';
+        html += '<ul style="margin: 4px 0 4px 16px; padding: 0;">';
+        deletedObj.forEach(obj => {
+          const id = obj.objectId || 'unknown';
+          const typeStr = obj.objectType || 'unknown type';
+          html += '<li title="' + typeStr + '"><code>' + id.slice(0, 8) + '...' + id.slice(-8) + '</code> <div style="font-size: 10px; color: var(--vscode-descriptionForeground); margin-left: 8px;">' + typeStr + '</div></li>';
+        });
+        html += '</ul></details>';
+      }
+    } else {
+      // Fallback to effects if objectChanges is not available
+      const mutated = effects.mutated?.length || 0;
+      const created = effects.created?.length || 0;
+      const deleted = effects.deleted?.length || 0;
+      if (mutated > 0 || created > 0 || deleted > 0) {
+        html += '<div style="margin-top: 8px; border-top: 1px solid var(--vscode-widget-border); padding-top: 4px;"><strong>Object Changes:</strong></div>';
+        
+        if (created > 0) {
+          html += '<details style="margin-top: 4px;"><summary style="cursor: pointer; color: var(--vscode-terminal-ansiBrightGreen);">Created (' + created + ')</summary>';
+          html += '<ul style="margin: 4px 0 4px 16px; padding: 0;">';
+          effects.created.forEach(obj => {
+            const id = obj.reference?.objectId || 'unknown';
+            html += '<li title="' + id + '"><code>' + id.slice(0, 8) + '...' + id.slice(-8) + '</code></li>';
+          });
+          html += '</ul></details>';
+        }
+        
+        if (mutated > 0) {
+          html += '<details style="margin-top: 4px;"><summary style="cursor: pointer; color: var(--vscode-terminal-ansiBrightYellow);">Mutated (' + mutated + ')</summary>';
+          html += '<ul style="margin: 4px 0 4px 16px; padding: 0;">';
+          effects.mutated.forEach(obj => {
+            const id = obj.reference?.objectId || 'unknown';
+            html += '<li title="' + id + '"><code>' + id.slice(0, 8) + '...' + id.slice(-8) + '</code></li>';
+          });
+          html += '</ul></details>';
+        }
+        
+        if (deleted > 0) {
+          html += '<details style="margin-top: 4px;"><summary style="cursor: pointer; color: var(--vscode-terminal-ansiBrightRed);">Deleted (' + deleted + ')</summary>';
+          html += '<ul style="margin: 4px 0 4px 16px; padding: 0;">';
+          effects.deleted.forEach(obj => {
+            const id = obj.objectId || 'unknown';
+            html += '<li title="' + id + '"><code>' + id.slice(0, 8) + '...' + id.slice(-8) + '</code></li>';
+          });
+          html += '</ul></details>';
+        }
+      }
+    }
+
+    container.innerHTML = html;
+  }
+
+  function renderDevInspectError(errorMsg) {
+    const btn = document.querySelector('button[onclick="sendDevInspect()"]');
+    if (btn) btn.innerHTML = '🔍 Dev Inspect';
+    
+    const container = document.getElementById('devInspectResults');
+    if (!container) return;
+    
+    container.style.display = 'block';
+    container.innerHTML = '<div style="color: var(--vscode-errorForeground);"><strong>Error:</strong> ' + errorMsg + '</div>';
+  }
 
   // Coin Portfolio Functions
   function toggleCoinObjects(coinType) {
@@ -1147,6 +1368,7 @@ export const webviewScript = `
   window.mvrNetwork = document.getElementById('mvrNetwork'); // Optional, mainly for debugging if needed
   window.copyValue = copyValue;
   window.sendCall = sendCall;
+  window.sendDevInspect = sendDevInspect;
   window.toggleSection = toggleSection;
   window.toggleGasCoins = toggleGasCoins;
   window.toggleImportWallet = toggleImportWallet;

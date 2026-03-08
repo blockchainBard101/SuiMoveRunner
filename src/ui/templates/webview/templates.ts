@@ -582,7 +582,11 @@ export function generateMoveProjectSections(params: WebviewParams): string {
       <div id="typeArgsContainer"></div>
       <div id="argsContainer"></div>
 
-      <button onclick="sendCall()" class="btn-primary">Execute</button>
+      <div style="display: flex; gap: 8px;">
+        <button onclick="sendCall()" class="btn-primary" style="flex: 1;">Execute</button>
+        <button onclick="sendDevInspect()" class="btn-secondary" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px;">🔍 Dev Inspect</button>
+      </div>
+      <div id="devInspectResults" class="dev-inspect-results" style="display: none; margin-top: 12px; font-size: 11px; max-height: 400px; overflow-y: auto; background: var(--vscode-editor-background); border: 1px solid var(--vscode-widget-border); padding: 8px; border-radius: 4px;"></div>
     </div>
 
     <div class="section danger-zone">

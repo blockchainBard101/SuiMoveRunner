@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { BaseController } from "./BaseController";
 import { runCommand } from "../utils/shell";
 import * as process from "process";
+import { dryRunTransactionBlock } from "../services/RpcService";
 
 export class TransactionController extends BaseController {
 
@@ -36,6 +37,74 @@ export class TransactionController extends BaseController {
         vscode.window.showInformationMessage(
             `🧠 Running '${callCmd}' in ${rootPath}...`
         );
+    }
+
+    async handleDevInspect(message: any) {
+        const { pkg, module, func, args, typeArgs } = message;
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            vscode.window.showErrorMessage("No workspace open");
+            return;
+        }
+        const rootPath = this.state.activeMoveProjectRoot || workspaceFolder.uri.fsPath;
+
+        let callCmd = `${this.state.suiPath} client call --package ${pkg} --module ${module} --function ${func}`;
+
+        if (typeArgs && typeArgs.length > 0) {
+            callCmd += " --type-args " + typeArgs.join(" ");
+        }
+        if (args && args.length > 0) {
+            callCmd += " --args " + args.join(" ");
+        }
+
+        // Add serialize and gas budget constraints to create the unsigned transaction payload
+        callCmd += " --gas-budget 500000000 --serialize-unsigned-transaction";
+
+        try {
+            const isWindows = process.platform === 'win32';
+            const callCmdFinal = isWindows
+                ? `cd /d "${rootPath}" && ${callCmd}`
+                : `cd "${rootPath}" && ${callCmd}`;
+
+            this.setStatus("Generating transaction block...");
+
+            // Generate unsigned transaction payload (base64)
+            const output = await runCommand(callCmdFinal);
+
+            // Extract the base64 output (the last non-empty line usually)
+            const lines = output.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            const txBytes = lines[lines.length - 1];
+
+            if (!txBytes) {
+                throw new Error("Could not parse transaction bytes from CLI output");
+            }
+
+            const sender = this.state.activeWallet;
+            if (!sender) {
+                vscode.window.showErrorMessage("No active wallet selected for Dev Inspect");
+                this.setStatus("");
+                return;
+            }
+
+            // Determine active RPC
+            const currentRpc = this.state.availableEnvs.find(e => e.alias === this.state.activeEnv)?.rpc ||
+                this.state.defaultEnvs.find(e => e.alias === this.state.activeEnv)?.rpc;
+
+            if (!currentRpc) {
+                throw new Error("Could not determine RPC URL for Dev Inspect");
+            }
+
+            this.setStatus("Running Dev Inspect (via Dry Run)...");
+            const result = await dryRunTransactionBlock(currentRpc, txBytes);
+
+            // Forward the result back to the webview
+            this.webview.postMessage({ command: 'dev-inspect-result', data: result });
+            this.setStatus("");
+        } catch (error: any) {
+            vscode.window.showErrorMessage("Dev Inspect Failed: " + error.message);
+            this.webview.postMessage({ command: 'dev-inspect-error', error: error.message });
+            this.setStatus("");
+        }
     }
 
     async handleGetFaucet() {
