@@ -1,6 +1,7 @@
 import { WebviewParams, GasCoin } from '../../types';
 import { webviewStyles } from './webview/styles';
 import { webviewScript } from './webview/script';
+import { ICONS, getIcon } from './webview/icons';
 import {
   generateHeader,
   generateStatusBar,
@@ -46,7 +47,8 @@ export function getWebviewContent(params: WebviewParams): string {
   } = params;
 
   // Generate the script with proper variable substitution
-  const script = webviewScript.replace('${JSON.stringify(argsMapping)}', JSON.stringify(argsMapping));
+  const script = webviewScript
+    .replace('${JSON.stringify(argsMapping)}', JSON.stringify(argsMapping));
 
   return `<!DOCTYPE html>
 <html lang="en">

@@ -1,6 +1,8 @@
+"use strict";
 // Types are implicitly handled in the string injection
-
-export const webviewScript = `
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.webviewScript = void 0;
+exports.webviewScript = `
   let vscode;
   try {
     vscode = acquireVsCodeApi();
@@ -1355,30 +1357,6 @@ export const webviewScript = `
     }
   }
   // --- PTB Builder Logic ---
-  function updatePtbCommandDescription() {
-    const type = document.getElementById('newPtbCommandType');
-    const descText = document.getElementById('newPtbCommandDescriptionText');
-    const descIcon = document.querySelector('#newPtbCommandDescription > span:first-child');
-    if (!type || !descText) return;
-
-    const descriptions = {
-      moveCall: 'Call a public Move function in a package.',
-      transferObjects: 'Transfer one or more objects to a recipient address.',
-      splitCoins: 'Split a single coin into multiple coins of specified amounts.',
-      mergeCoins: 'Merge multiple coins of the same type into one target coin.',
-      makeMoveVec: 'Construct a vector — useful for passing arrays to a moveCall.',
-      publish: 'Publish a Move package from a local directory.',
-      upgrade: 'Upgrade an existing Move package.'
-    };
-
-    descText.textContent = descriptions[type.value] || '';
-    // Update icon from hidden DOM lookup — avoids injecting SVG strings into JS
-    if (descIcon) {
-      const iconEl = document.querySelector('[data-ptb-icon="' + type.value + '"]');
-      if (iconEl) descIcon.innerHTML = iconEl.innerHTML;
-    }
-  }
-
   function addPtbCommand() {
     vscode.postMessage({command: 'debug-log', message: 'addPtbCommand called'});
     try {
@@ -1519,14 +1497,11 @@ export const webviewScript = `
         html += '<button onclick="deletePtbCommand(' + idx + ')" style="background: none; border: none; cursor: pointer; color: var(--vscode-errorForeground); padding: 0 4px;" title="Delete Command">✕</button>';
         html += '</div>';
 
-      // Assign Output — only for commands that actually produce a usable output
-      const hasOutput = (cmd.type === 'moveCall' || cmd.type === 'splitCoins' || cmd.type === 'makeMoveVec' || cmd.type === 'publish' || cmd.type === 'upgrade');
-      if (hasOutput) {
-        html += '<div class="input-group" style="margin-bottom: 8px;">';
-        html += '<label class="input-label" style="font-size: 10px; color: var(--vscode-terminal-ansiBrightMagenta);">Assign Output Variable (Optional)</label>';
-        html += '<input type="text" value="' + (cmd.assignedName || '') + '" onchange="updatePtbCommandField(' + idx + ', \\'assignedName\\', this.value)" placeholder="e.g., my_coin" style="font-size: 11px;" />';
-        html += '</div>';
-      }
+      // Assign Output
+      html += '<div class="input-group" style="margin-bottom: 8px;">';
+      html += '<label class="input-label" style="font-size: 10px; color: var(--vscode-terminal-ansiBrightMagenta);">Assign Output Variable (Optional)</label>';
+      html += '<input type="text" value="' + (cmd.assignedName || '') + '" onchange="updatePtbCommandField(' + idx + ', \\'assignedName\\', this.value)" placeholder="e.g., my_coin" style="font-size: 11px;" />';
+      html += '</div>';
 
       // Type-specific forms
       if (cmd.type === 'moveCall') {
@@ -1640,7 +1615,7 @@ export const webviewScript = `
       } else if (cmd.type === 'splitCoins') {
         let coinOptions = '<option value="">-- Custom Target --</option><option value="gas" ' + ((cmd.coin === 'gas') ? 'selected' : '') + '>gas (Payment Coin)</option>';
         if (typeof gasCoins !== 'undefined' && gasCoins && gasCoins.length > 0) {
-            gasCoins.forEach((c) => {
+            gasCoins.forEach((c: any) => {
                 const isSelected = (cmd.coin === c.coinObjectId) ? 'selected' : '';
                 coinOptions += '<option value="' + c.coinObjectId + '" ' + isSelected + '>' + c.coinObjectId.slice(0, 8) + '... (' + (Number(c.balance) / 1000000000).toFixed(4) + ' SUI)</option>';
             });
@@ -1657,7 +1632,7 @@ export const webviewScript = `
       } else if (cmd.type === 'mergeCoins') {
         let mergeOptions = '<option value="">-- Custom Target --</option>';
         if (typeof gasCoins !== 'undefined' && gasCoins && gasCoins.length > 0) {
-            gasCoins.forEach((c) => {
+            gasCoins.forEach((c: any) => {
                 const isSelected = (cmd.targetCoin === c.coinObjectId) ? 'selected' : '';
                 mergeOptions += '<option value="' + c.coinObjectId + '" ' + isSelected + '>' + c.coinObjectId.slice(0, 8) + '... (' + (Number(c.balance) / 1000000000).toFixed(4) + ' SUI)</option>';
             });
@@ -1835,4 +1810,4 @@ export const webviewScript = `
   window.handleInstallSui = handleInstallSui;
   window.handleUpdateSui = handleUpdateSui;
 `;
-
+//# sourceMappingURL=script.js.map

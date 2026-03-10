@@ -1,6 +1,5 @@
-// Types are implicitly handled in the string injection
 
-export const webviewScript = `
+    
   let vscode;
   try {
     vscode = acquireVsCodeApi();
@@ -10,13 +9,13 @@ export const webviewScript = `
     if (vscode) {
       vscode.postMessage({
         command: 'debug-log',
-        message: \`JS Error: \${msg} at \${line}:\${col}. Error: \${error?.stack}\`
+        message: `JS Error: ${msg} at ${line}:${col}. Error: ${error?.stack}`
       });
     }
     return false;
   };
   
-  const argsMapping = \${JSON.stringify(argsMapping)};
+  const argsMapping = {};
   let ptbCommands = [];
 
   // Event delegation for selectMoveProjectBtn (works even when button is recreated)
@@ -402,7 +401,7 @@ export const webviewScript = `
     const amountStr = (document.getElementById('transferAmount') || { value: '' }).value.trim();
     let valid = Boolean(coinId && to);
     if (amountStr) {
-      valid = valid && /^\d+$/.test(amountStr);
+      valid = valid && /^d+$/.test(amountStr);
     }
     const btn = document.getElementById('transferCoinBtn');
     setButtonEnabled(btn, valid);
@@ -531,7 +530,7 @@ export const webviewScript = `
 
     // Proactive cleaning: strip common command prefixes if pasted
     if (depType === 'mvr') {
-      value = value.replace(/^(sui\s+)?mvr\s+add\s+/i, '');
+      value = value.replace(/^(suis+)?mvrs+adds+/i, '');
     }
 
     setStatusMessage('Adding dependency...');
@@ -609,13 +608,13 @@ export const webviewScript = `
 
   // Extract inner type from Coin<T>
   function extractCoinType(type) {
-    const match = String(type).match(/Coin<\\s*(.+?)\\s*>/);
+    const match = String(type).match(/Coin<\s*(.+?)\s*>/);
     return match ? match[1] : null;
   }
 
   // Extract inner type from vector<T>
   function extractVectorType(type) {
-    const match = String(type).match(/vector<\\s*(.+?)\\s*>/);
+    const match = String(type).match(/vector<\s*(.+?)\s*>/);
     return match ? match[1] : null;
   }
 
@@ -1355,30 +1354,6 @@ export const webviewScript = `
     }
   }
   // --- PTB Builder Logic ---
-  function updatePtbCommandDescription() {
-    const type = document.getElementById('newPtbCommandType');
-    const descText = document.getElementById('newPtbCommandDescriptionText');
-    const descIcon = document.querySelector('#newPtbCommandDescription > span:first-child');
-    if (!type || !descText) return;
-
-    const descriptions = {
-      moveCall: 'Call a public Move function in a package.',
-      transferObjects: 'Transfer one or more objects to a recipient address.',
-      splitCoins: 'Split a single coin into multiple coins of specified amounts.',
-      mergeCoins: 'Merge multiple coins of the same type into one target coin.',
-      makeMoveVec: 'Construct a vector — useful for passing arrays to a moveCall.',
-      publish: 'Publish a Move package from a local directory.',
-      upgrade: 'Upgrade an existing Move package.'
-    };
-
-    descText.textContent = descriptions[type.value] || '';
-    // Update icon from hidden DOM lookup — avoids injecting SVG strings into JS
-    if (descIcon) {
-      const iconEl = document.querySelector('[data-ptb-icon="' + type.value + '"]');
-      if (iconEl) descIcon.innerHTML = iconEl.innerHTML;
-    }
-  }
-
   function addPtbCommand() {
     vscode.postMessage({command: 'debug-log', message: 'addPtbCommand called'});
     try {
@@ -1479,7 +1454,7 @@ export const webviewScript = `
         } else {
              renderPtbCommands();
         }
-    } else if (parts.length === 1 && parts[0].startsWith('0x') && (parts[0].length >= 66 || parts[0].length <= 6)) {
+    } else if (parts.length === 1 && parts[0].startsWith('0x') && parts[0].length >= 66) {
         setStatusMessage('Auto-detecting package modules...');
         vscode.postMessage({
             command: 'get-normalized-modules',
@@ -1519,14 +1494,11 @@ export const webviewScript = `
         html += '<button onclick="deletePtbCommand(' + idx + ')" style="background: none; border: none; cursor: pointer; color: var(--vscode-errorForeground); padding: 0 4px;" title="Delete Command">✕</button>';
         html += '</div>';
 
-      // Assign Output — only for commands that actually produce a usable output
-      const hasOutput = (cmd.type === 'moveCall' || cmd.type === 'splitCoins' || cmd.type === 'makeMoveVec' || cmd.type === 'publish' || cmd.type === 'upgrade');
-      if (hasOutput) {
-        html += '<div class="input-group" style="margin-bottom: 8px;">';
-        html += '<label class="input-label" style="font-size: 10px; color: var(--vscode-terminal-ansiBrightMagenta);">Assign Output Variable (Optional)</label>';
-        html += '<input type="text" value="' + (cmd.assignedName || '') + '" onchange="updatePtbCommandField(' + idx + ', \\'assignedName\\', this.value)" placeholder="e.g., my_coin" style="font-size: 11px;" />';
-        html += '</div>';
-      }
+      // Assign Output
+      html += '<div class="input-group" style="margin-bottom: 8px;">';
+      html += '<label class="input-label" style="font-size: 10px; color: var(--vscode-terminal-ansiBrightMagenta);">Assign Output Variable (Optional)</label>';
+      html += '<input type="text" value="' + (cmd.assignedName || '') + '" onchange="updatePtbCommandField(' + idx + ', \'assignedName\', this.value)" placeholder="e.g., my_coin" style="font-size: 11px;" />';
+      html += '</div>';
 
       // Type-specific forms
       if (cmd.type === 'moveCall') {
@@ -1554,9 +1526,9 @@ export const webviewScript = `
         }
         html += '</div>';
 
-        const remoteTargetParts = (cmd.target || '').split('::');
-        const pkgId = remoteTargetParts[0].trim();
-        const isPackageIdMode = pkgId.startsWith('0x') && (pkgId.length >= 66 || pkgId.length <= 6);
+        const targetParts = (cmd.target || '').split('::');
+        const pkgId = targetParts[0].trim();
+        const isPackageIdMode = pkgId.startsWith('0x') && pkgId.length >= 66;
 
         if (isPackageIdMode) {
              const pkgFunctions = Object.keys(argsMapping).filter(k => k.startsWith(pkgId + '::'));
@@ -1605,11 +1577,11 @@ export const webviewScript = `
             html += '<div class="input-group" style="margin-top: 8px;"><label class="input-label" style="font-size: 10px; color: var(--vscode-terminal-ansiBrightCyan);">Type Arguments (' + typeParams.length + ' required)</label>';
             for (let i = 0; i < typeParams.length; i++) {
                 const val = (cmd.typeArgs && cmd.typeArgs[i]) ? cmd.typeArgs[i] : '';
-                html += '<input type="text" value="' + val + '" onchange="updatePtbCommandArrayField(' + idx + ', \\'typeArgs\\', ' + i + ', this.value)" placeholder="Type Arg ' + (i+1) + (typeParams[i] ? ' (' + typeParams[i] + ')' : ' (e.g. 0x2::sui::SUI)') + '" style="font-size: 11px; font-family: monospace; margin-bottom: 4px;" />';
+                html += '<input type="text" value="' + val + '" onchange="updatePtbCommandArrayField(' + idx + ', \'typeArgs\', ' + i + ', this.value)" placeholder="Type Arg ' + (i+1) + (typeParams[i] ? ' (' + typeParams[i] + ')' : ' (e.g. 0x2::sui::SUI)') + '" style="font-size: 11px; font-family: monospace; margin-bottom: 4px;" />';
             }
             html += '</div>';
         } else if (!typeParams) {
-            html += '<div class="input-group"><label class="input-label" style="font-size: 10px;">Type Arguments (comma separated)</label><input type="text" value="' + (cmd.typeArgs ? cmd.typeArgs.join(', ') : '') + '" onchange="updatePtbCommandField(' + idx + ', \\'typeArgs\\', this.value, true)" placeholder="e.g., 0x2::sui::SUI" style="font-size: 11px; font-family: monospace;" /></div>';
+            html += '<div class="input-group"><label class="input-label" style="font-size: 10px;">Type Arguments (comma separated)</label><input type="text" value="' + (cmd.typeArgs ? cmd.typeArgs.join(', ') : '') + '" onchange="updatePtbCommandField(' + idx + ', \'typeArgs\', this.value, true)" placeholder="e.g., 0x2::sui::SUI" style="font-size: 11px; font-family: monospace;" /></div>';
         }
         
         if (argTypes && argTypes.length > 0) {
@@ -1624,59 +1596,30 @@ export const webviewScript = `
                 const val = (cmd.args && cmd.args[actualArgIdx]) ? cmd.args[actualArgIdx] : '';
                 html += '<div style="margin-bottom: 4px;">';
                 html += '<div style="font-size: 9px; color: var(--vscode-descriptionForeground); margin-bottom: 2px;">Arg ' + (actualArgIdx+1) + ': ' + (typeof cleanupTypeName === 'function' ? cleanupTypeName(typeStr) : typeStr) + '</div>';
-                html += '<input type="text" value="' + val + '" onchange="updatePtbCommandArrayField(' + idx + ', \\'args\\', ' + actualArgIdx + ', this.value)" placeholder="Value" style="font-size: 11px; font-family: monospace;" />';
+                html += '<input type="text" value="' + val + '" onchange="updatePtbCommandArrayField(' + idx + ', \'args\', ' + actualArgIdx + ', this.value)" placeholder="Value" style="font-size: 11px; font-family: monospace;" />';
                 html += '</div>';
                 actualArgIdx++;
             }
             // Auto size array to actual arguments count if we matched schema
             html += '</div>';
         } else if (!argTypes) {
-            html += '<div class="input-group"><label class="input-label" style="font-size: 10px;">Arguments (comma separated)</label><input type="text" value="' + (cmd.args ? cmd.args.join(', ') : '') + '" onchange="updatePtbCommandField(' + idx + ', \\'args\\', this.value, true)" placeholder="e.g., @0x123, 1000, my_coin" style="font-size: 11px; font-family: monospace;" /></div>';
+            html += '<div class="input-group"><label class="input-label" style="font-size: 10px;">Arguments (comma separated)</label><input type="text" value="' + (cmd.args ? cmd.args.join(', ') : '') + '" onchange="updatePtbCommandField(' + idx + ', \'args\', this.value, true)" placeholder="e.g., @0x123, 1000, my_coin" style="font-size: 11px; font-family: monospace;" /></div>';
         }
         
       } else if (cmd.type === 'transferObjects') {
-        html += '<div class="input-group"><label class="input-label" style="font-size: 10px;">Objects (comma separated)</label><input type="text" value="' + (cmd.objects ? cmd.objects.join(', ') : '') + '" onchange="updatePtbCommandField(' + idx + ', \\'objects\\', this.value, true)" placeholder="e.g., @0x123, my_coin" style="font-size: 11px; font-family: monospace;" /></div>';
-        html += '<div class="input-group"><label class="input-label" style="font-size: 10px;">Recipient Address</label><input type="text" value="' + (cmd.address || '') + '" onchange="updatePtbCommandField(' + idx + ', \\'address\\', this.value)" placeholder="e.g., @0xabc" style="font-size: 11px; font-family: monospace;" /></div>';
+        html += '<div class="input-group"><label class="input-label" style="font-size: 10px;">Objects (comma separated)</label><input type="text" value="' + (cmd.objects ? cmd.objects.join(', ') : '') + '" onchange="updatePtbCommandField(' + idx + ', \'objects\', this.value, true)" placeholder="e.g., @0x123, my_coin" style="font-size: 11px; font-family: monospace;" /></div>';
+        html += '<div class="input-group"><label class="input-label" style="font-size: 10px;">Recipient Address</label><input type="text" value="' + (cmd.address || '') + '" onchange="updatePtbCommandField(' + idx + ', \'address\', this.value)" placeholder="e.g., @0xabc" style="font-size: 11px; font-family: monospace;" /></div>';
       } else if (cmd.type === 'splitCoins') {
-        let coinOptions = '<option value="">-- Custom Target --</option><option value="gas" ' + ((cmd.coin === 'gas') ? 'selected' : '') + '>gas (Payment Coin)</option>';
-        if (typeof gasCoins !== 'undefined' && gasCoins && gasCoins.length > 0) {
-            gasCoins.forEach((c) => {
-                const isSelected = (cmd.coin === c.coinObjectId) ? 'selected' : '';
-                coinOptions += '<option value="' + c.coinObjectId + '" ' + isSelected + '>' + c.coinObjectId.slice(0, 8) + '... (' + (Number(c.balance) / 1000000000).toFixed(4) + ' SUI)</option>';
-            });
-        }
-        
-        html += '<div class="input-group"><label class="input-label" style="font-size: 10px;">Coin to Split</label>';
-        html += '<div style="display: flex; gap: 4px;">';
-        html += '<input type="text" value="' + (cmd.coin || '') + '" onchange="updatePtbCommandField(' + idx + ', \\'coin\\', this.value)" placeholder="e.g., gas or @0xabc" style="font-size: 11px; font-family: monospace; flex: 1;" />';
-        html += '<select style="max-width: 150px; font-size: 10px; background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border);" onchange="if(this.value) { updatePtbCommandField(' + idx + ', \\'coin\\', this.value); }">';
-        html += coinOptions;
-        html += '</select>';
-        html += '</div></div>';
-        html += '<div class="input-group"><label class="input-label" style="font-size: 10px;">Amounts (comma separated)</label><input type="text" value="' + (cmd.amounts ? cmd.amounts.join(', ') : '') + '" onchange="updatePtbCommandField(' + idx + ', \\'amounts\\', this.value, true)" placeholder="e.g., 1000, 5000" style="font-size: 11px; font-family: monospace;" /></div>';
+        html += '<div class="input-group"><label class="input-label" style="font-size: 10px;">Coin to Split</label><input type="text" value="' + (cmd.coin || '') + '" onchange="updatePtbCommandField(' + idx + ', \'coin\', this.value)" placeholder="e.g., gas or @0xabc" style="font-size: 11px; font-family: monospace;" /></div>';
+        html += '<div class="input-group"><label class="input-label" style="font-size: 10px;">Amounts (comma separated)</label><input type="text" value="' + (cmd.amounts ? cmd.amounts.join(', ') : '') + '" onchange="updatePtbCommandField(' + idx + ', \'amounts\', this.value, true)" placeholder="e.g., 1000, 5000" style="font-size: 11px; font-family: monospace;" /></div>';
       } else if (cmd.type === 'mergeCoins') {
-        let mergeOptions = '<option value="">-- Custom Target --</option>';
-        if (typeof gasCoins !== 'undefined' && gasCoins && gasCoins.length > 0) {
-            gasCoins.forEach((c) => {
-                const isSelected = (cmd.targetCoin === c.coinObjectId) ? 'selected' : '';
-                mergeOptions += '<option value="' + c.coinObjectId + '" ' + isSelected + '>' + c.coinObjectId.slice(0, 8) + '... (' + (Number(c.balance) / 1000000000).toFixed(4) + ' SUI)</option>';
-            });
-        }
-        
-        html += '<div class="input-group"><label class="input-label" style="font-size: 10px;">Target Coin</label>';
-        html += '<div style="display: flex; gap: 4px;">';
-        html += '<input type="text" value="' + (cmd.targetCoin || '') + '" onchange="updatePtbCommandField(' + idx + ', \\'targetCoin\\', this.value)" placeholder="e.g., @0xabc" style="font-size: 11px; font-family: monospace; flex: 1;" />';
-        html += '<select style="max-width: 150px; font-size: 10px; background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border);" onchange="if(this.value) { updatePtbCommandField(' + idx + ', \\'targetCoin\\', this.value); }">';
-        html += mergeOptions;
-        html += '</select>';
-        html += '</div></div>';
-        
-        html += '<div class="input-group"><label class="input-label" style="font-size: 10px;">Coins to Merge (comma separated)</label><input type="text" value="' + (cmd.coinsToMerge ? cmd.coinsToMerge.join(', ') : '') + '" onchange="updatePtbCommandField(' + idx + ', \\'coinsToMerge\\', this.value, true)" placeholder="e.g., @0xdef, @0x456" style="font-size: 11px; font-family: monospace;" /></div>';
+        html += '<div class="input-group"><label class="input-label" style="font-size: 10px;">Target Coin</label><input type="text" value="' + (cmd.targetCoin || '') + '" onchange="updatePtbCommandField(' + idx + ', \'targetCoin\', this.value)" placeholder="e.g., @0xabc" style="font-size: 11px; font-family: monospace;" /></div>';
+        html += '<div class="input-group"><label class="input-label" style="font-size: 10px;">Coins to Merge (comma separated)</label><input type="text" value="' + (cmd.coinsToMerge ? cmd.coinsToMerge.join(', ') : '') + '" onchange="updatePtbCommandField(' + idx + ', \'coinsToMerge\', this.value, true)" placeholder="e.g., @0xdef, @0x456" style="font-size: 11px; font-family: monospace;" /></div>';
       } else if (cmd.type === 'makeMoveVec') {
-        html += '<div class="input-group"><label class="input-label" style="font-size: 10px;">Type Tag</label><input type="text" value="' + (cmd.typeTag || '') + '" onchange="updatePtbCommandField(' + idx + ', \\'typeTag\\', this.value)" placeholder="e.g., u64" style="font-size: 11px; font-family: monospace;" /></div>';
-        html += '<div class="input-group"><label class="input-label" style="font-size: 10px;">Elements (comma separated)</label><input type="text" value="' + (cmd.elements ? cmd.elements.join(', ') : '') + '" onchange="updatePtbCommandField(' + idx + ', \\'elements\\', this.value, true)" placeholder="e.g., 1, 2, 3" style="font-size: 11px; font-family: monospace;" /></div>';
+        html += '<div class="input-group"><label class="input-label" style="font-size: 10px;">Type Tag</label><input type="text" value="' + (cmd.typeTag || '') + '" onchange="updatePtbCommandField(' + idx + ', \'typeTag\', this.value)" placeholder="e.g., u64" style="font-size: 11px; font-family: monospace;" /></div>';
+        html += '<div class="input-group"><label class="input-label" style="font-size: 10px;">Elements (comma separated)</label><input type="text" value="' + (cmd.elements ? cmd.elements.join(', ') : '') + '" onchange="updatePtbCommandField(' + idx + ', \'elements\', this.value, true)" placeholder="e.g., 1, 2, 3" style="font-size: 11px; font-family: monospace;" /></div>';
       } else if (cmd.type === 'publish' || cmd.type === 'upgrade') {
-        html += '<div class="input-group"><label class="input-label" style="font-size: 10px;">Package Path</label><input type="text" value="' + (cmd.packagePath || '.') + '" onchange="updatePtbCommandField(' + idx + ', \\'packagePath\\', this.value)" placeholder="." style="font-size: 11px; font-family: monospace;" /></div>';
+        html += '<div class="input-group"><label class="input-label" style="font-size: 10px;">Package Path</label><input type="text" value="' + (cmd.packagePath || '.') + '" onchange="updatePtbCommandField(' + idx + ', \'packagePath\', this.value)" placeholder="." style="font-size: 11px; font-family: monospace;" /></div>';
       }
 
       html += '</div>';
@@ -1686,7 +1629,7 @@ export const webviewScript = `
     container.innerHTML = html;
     vscode.postMessage({command: 'debug-log', message: 'innerHTML assignment complete'});
     } catch (e) {
-      vscode.postMessage({command: 'debug-log', message: 'Error in renderPtbCommands: ' + e.message + ' \\n' + e.stack});
+      vscode.postMessage({command: 'debug-log', message: 'Error in renderPtbCommands: ' + e.message + ' \n' + e.stack});
     }
   }
 
@@ -1834,5 +1777,5 @@ export const webviewScript = `
   window.setStatusMessage = setStatusMessage;
   window.handleInstallSui = handleInstallSui;
   window.handleUpdateSui = handleUpdateSui;
-`;
 
+  

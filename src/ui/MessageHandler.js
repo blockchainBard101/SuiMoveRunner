@@ -1,27 +1,26 @@
-import * as vscode from "vscode";
-import { ExtensionState } from "../state/ExtensionState";
-import { PackageController } from "../controllers/PackageController";
-import { WalletController } from "../controllers/WalletController";
-import { EnvironmentController } from "../controllers/EnvironmentController";
-import { TransactionController } from "../controllers/TransactionController";
-
-export class MessageHandler {
-    private packageController: PackageController;
-    private walletController: WalletController;
-    private envController: EnvironmentController;
-    private txController: TransactionController;
-
-    constructor(
-        private state: ExtensionState,
-        private webview: vscode.Webview
-    ) {
-        this.packageController = new PackageController(state, webview);
-        this.walletController = new WalletController(state, webview);
-        this.envController = new EnvironmentController(state, webview);
-        this.txController = new TransactionController(state, webview);
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.MessageHandler = void 0;
+const PackageController_1 = require("../controllers/PackageController");
+const WalletController_1 = require("../controllers/WalletController");
+const EnvironmentController_1 = require("../controllers/EnvironmentController");
+const TransactionController_1 = require("../controllers/TransactionController");
+class MessageHandler {
+    state;
+    webview;
+    packageController;
+    walletController;
+    envController;
+    txController;
+    constructor(state, webview) {
+        this.state = state;
+        this.webview = webview;
+        this.packageController = new PackageController_1.PackageController(state, webview);
+        this.walletController = new WalletController_1.WalletController(state, webview);
+        this.envController = new EnvironmentController_1.EnvironmentController(state, webview);
+        this.txController = new TransactionController_1.TransactionController(state, webview);
     }
-
-    public async handleMessage(message: any) {
+    async handleMessage(message) {
         switch (message.command) {
             // Package Operations
             case "create":
@@ -63,7 +62,6 @@ export class MessageHandler {
             case "view-published-toml":
                 await this.packageController.handleViewPublishedToml();
                 break;
-
             // Environment Operations
             case "switch-env":
                 await this.envController.handleSwitchEnv(message);
@@ -80,7 +78,6 @@ export class MessageHandler {
             case "install-sui":
                 await this.envController.handleInstallSui(message);
                 break;
-
             // Wallet Operations
             case "switch-wallet":
                 await this.walletController.handleSwitchWallet(message);
@@ -103,7 +100,6 @@ export class MessageHandler {
             case "showCopyNotification":
                 this.walletController.handleShowCopyNotification();
                 break;
-
             // Transaction Operations
             case "call":
                 await this.txController.handleCall(message);
@@ -144,7 +140,6 @@ export class MessageHandler {
             case "transfer-coin":
                 await this.txController.handleTransferCoin(message);
                 break;
-
             // General
             case "refresh":
                 // Base controller logic to trigger state refresh
@@ -152,10 +147,8 @@ export class MessageHandler {
                 await this.state.refreshEnvs();
                 await this.state.refreshWallets();
                 await this.state.checkSuiVersion();
-
                 // Also refresh project info if needed
                 // await this.state.scanForMoveProjects(); // Maybe overkill on every refresh, but safer
-
                 await this.state.onRefreshView();
                 break;
             case "debug-log":
@@ -165,3 +158,5 @@ export class MessageHandler {
         }
     }
 }
+exports.MessageHandler = MessageHandler;
+//# sourceMappingURL=MessageHandler.js.map
