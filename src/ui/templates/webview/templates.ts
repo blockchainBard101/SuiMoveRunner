@@ -631,7 +631,7 @@ export function generatePtbBuilderSection(): string {
             <option value="publish">Publish</option>
             <option value="upgrade">Upgrade</option>
           </select>
-          <button onclick="addPtbCommand()" class="btn-secondary" style="white-space: nowrap; padding: 6px 12px; font-size: 12px;">${getIcon(ICONS.PLUS)} Add</button>
+          <button onclick="addPtbCommand()" class="btn-primary" style="white-space: nowrap; padding: 3px 8px; font-size: 10px; width: auto;">${getIcon(ICONS.PLUS)} Add</button>
         </div>
         <div id="newPtbCommandDescription" style="margin-top: 6px; padding: 8px 10px; font-size: 11px; color: var(--vscode-foreground); background: var(--vscode-editor-inactiveSelectionBackground); border-left: 3px solid var(--vscode-focusBorder); border-radius: 0 4px 4px 0; display: flex; align-items: center; gap: 8px;">
           <span style="display: flex; align-items: center; flex-shrink: 0;">${getIcon(ICONS.THUNDERBOLT)}</span>

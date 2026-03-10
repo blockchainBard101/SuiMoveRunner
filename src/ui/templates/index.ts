@@ -48,7 +48,8 @@ export function getWebviewContent(params: WebviewParams): string {
 
   // Generate the script with proper variable substitution
   const script = webviewScript
-    .replace('${JSON.stringify(argsMapping)}', JSON.stringify(argsMapping));
+    .replace('${JSON.stringify(argsMapping)}', JSON.stringify(argsMapping))
+    .replace('${JSON.stringify(gasCoins)}', JSON.stringify(gasCoins || []));
 
   return `<!DOCTYPE html>
 <html lang="en">
