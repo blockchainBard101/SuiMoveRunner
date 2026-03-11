@@ -230,38 +230,38 @@ export class PackageController extends BaseController {
                         // Extract package ID from Move.lock / Published.toml
                         let pkg = this.state.extractPackageId(rootPath, activeEnv);
 
-                        // Post-publish: Update Move.toml with new package ID (Surgical)
-                        if (pkg && fs.existsSync(moveTomlPath)) {
-                            try {
-                                let newContent = fs.readFileSync(moveTomlPath, "utf-8");
-                                const moveData = toml.parse(newContent);
-                                const pkgName = moveData.package?.name;
-                                let postChanged = false;
+                        // // Post-publish: Update Move.toml with new package ID (Surgical)
+                        // if (pkg && fs.existsSync(moveTomlPath)) {
+                        //     try {
+                        //         let newContent = fs.readFileSync(moveTomlPath, "utf-8");
+                        //         const moveData = toml.parse(newContent);
+                        //         const pkgName = moveData.package?.name;
+                        //         let postChanged = false;
 
-                                // Update published-at in [package] section
-                                const pubResult = surgicalUpdateToml(newContent, "package", "published-at", pkg, true);
-                                if (pubResult.changed) {
-                                    newContent = pubResult.content;
-                                    postChanged = true;
-                                }
+                        //         // Update published-at in [package] section
+                        //         const pubResult = surgicalUpdateToml(newContent, "package", "published-at", pkg, true);
+                        //         if (pubResult.changed) {
+                        //             newContent = pubResult.content;
+                        //             postChanged = true;
+                        //         }
 
-                                // Update package address in [addresses] section (Only if exists)
-                                if (pkgName) {
-                                    const addrResult = surgicalUpdateToml(newContent, "addresses", pkgName, pkg, false);
-                                    if (addrResult.changed) {
-                                        newContent = addrResult.content;
-                                        postChanged = true;
-                                    }
-                                }
+                        //         // Update package address in [addresses] section (Only if exists)
+                        //         if (pkgName) {
+                        //             const addrResult = surgicalUpdateToml(newContent, "addresses", pkgName, pkg, false);
+                        //             if (addrResult.changed) {
+                        //                 newContent = addrResult.content;
+                        //                 postChanged = true;
+                        //             }
+                        //         }
 
-                                if (postChanged) {
-                                    fs.writeFileSync(moveTomlPath, newContent);
-                                    outputChannel.appendLine(`✅ Updated Move.toml: published-at = ${pkg}${pkgName ? `, ${pkgName} = ${pkg}` : ""}`);
-                                }
-                            } catch (err) {
-                                outputChannel.appendLine(`⚠️ Failed to update Move.toml after publishing: ${err}`);
-                            }
-                        }
+                        //         if (postChanged) {
+                        //             fs.writeFileSync(moveTomlPath, newContent);
+                        //             outputChannel.appendLine(`✅ Updated Move.toml: published-at = ${pkg}${pkgName ? `, ${pkgName} = ${pkg}` : ""}`);
+                        //         }
+                        //     } catch (err) {
+                        //         outputChannel.appendLine(`⚠️ Failed to update Move.toml after publishing: ${err}`);
+                        //     }
+                        // }
 
                         if (!upgradeCapId || !pkg) {
                             vscode.window.showWarningMessage(

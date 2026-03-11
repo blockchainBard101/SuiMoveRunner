@@ -1387,12 +1387,12 @@ export const webviewScript = `
           newCmd.typeTag = '';
           newCmd.elements = [];
           break;
-        case 'publish':
-          newCmd.packagePath = '.';
-          break;
-        case 'upgrade':
-          newCmd.packagePath = '.';
-          break;
+        // case 'publish':
+        //   newCmd.packagePath = '.';
+        //   break;
+        // case 'upgrade':
+        //   newCmd.packagePath = '.';
+        //   break;
       }
       
       ptbCommands.push(newCmd);

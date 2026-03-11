@@ -628,8 +628,6 @@ export function generatePtbBuilderSection(): string {
             <option value="splitCoins">Split Coins</option>
             <option value="mergeCoins">Merge Coins</option>
             <option value="makeMoveVec">Make Vector</option>
-            <option value="publish">Publish</option>
-            <option value="upgrade">Upgrade</option>
           </select>
           <button onclick="addPtbCommand()" class="btn-primary" style="white-space: nowrap; padding: 3px 8px; font-size: 10px; width: auto;">${getIcon(ICONS.PLUS)} Add</button>
         </div>
@@ -643,8 +641,6 @@ export function generatePtbBuilderSection(): string {
         <span style="display:none" data-ptb-icon="splitCoins">${getIcon(ICONS.SPLIT)}</span>
         <span style="display:none" data-ptb-icon="mergeCoins">${getIcon(ICONS.MERGE)}</span>
         <span style="display:none" data-ptb-icon="makeMoveVec">${getIcon(ICONS.PACKAGE)}</span>
-        <span style="display:none" data-ptb-icon="publish">${getIcon(ICONS.ROCKET)}</span>
-        <span style="display:none" data-ptb-icon="upgrade">${getIcon(ICONS.UP)}</span>
       </div>
 
       <div style="display: flex; gap: 8px; margin-top: 12px;">

@@ -1368,8 +1368,6 @@ export const webviewScript = `
       splitCoins: 'Split a single coin into multiple coins of specified amounts.',
       mergeCoins: 'Merge multiple coins of the same type into one target coin.',
       makeMoveVec: 'Construct a vector — useful for passing arrays to a moveCall.',
-      publish: 'Publish a Move package from a local directory.',
-      upgrade: 'Upgrade an existing Move package.'
     };
 
     descText.textContent = descriptions[type.value] || '';
@@ -1411,12 +1409,6 @@ export const webviewScript = `
         case 'makeMoveVec':
           newCmd.typeTag = '';
           newCmd.elements = [];
-          break;
-        case 'publish':
-          newCmd.packagePath = '.';
-          break;
-        case 'upgrade':
-          newCmd.packagePath = '.';
           break;
       }
       
@@ -1549,7 +1541,7 @@ export const webviewScript = `
         html += '</div>';
 
       // Assign Output — only for commands that actually produce a usable output
-      const hasOutput = (cmd.type === 'moveCall' || cmd.type === 'splitCoins' || cmd.type === 'makeMoveVec' || cmd.type === 'publish' || cmd.type === 'upgrade');
+      const hasOutput = (cmd.type === 'moveCall' || cmd.type === 'splitCoins' || cmd.type === 'makeMoveVec');
       if (hasOutput) {
         html += '<div class="input-group" style="margin-bottom: 8px;">';
         html += '<label class="input-label" style="font-size: 10px; color: var(--vscode-terminal-ansiBrightMagenta);">Assign Output Variable (Optional)</label>';

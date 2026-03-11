@@ -568,8 +568,8 @@ function generatePtbBuilderSection() {
           <option value="splitCoins">Split Coins (splitCoins)</option>
           <option value="mergeCoins">Merge Coins (mergeCoins)</option>
           <option value="makeMoveVec">Make Vector (makeMoveVec)</option>
-          <option value="publish">Publish (publish)</option>
-          <option value="upgrade">Upgrade (upgrade)</option>
+          // <option value="publish">Publish (publish)</option>
+          // <option value="upgrade">Upgrade (upgrade)</option>
         </select>
         <button onclick="addPtbCommand()" class="btn-secondary" style="white-space: nowrap;">${(0, icons_1.getIcon)(icons_1.ICONS.PLUS)} Add Command</button>
       </div>
