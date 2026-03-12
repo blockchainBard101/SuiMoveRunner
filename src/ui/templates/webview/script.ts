@@ -1565,11 +1565,10 @@ export const webviewScript = `
            });
         }
 
-        html += '<div class="input-group"><label class="input-label" style="font-size: 10px;">Target (package::module::function)</label>';
-        html += '<div style="display: flex; gap: 4px;">';
-        html += '<input type="text" value="' + (cmd.target || '') + '" onchange="onPtbTargetChanged(' + idx + ', this.value)" placeholder="e.g., 0x2::sui::transfer" style="font-size: 11px; font-family: monospace; flex: 1;" />';
+        html += '<div class="input-group"><label class="input-label" style="font-size: 10px;">Package ID</label>';
+        html += '<input type="text" value="' + (cmd.target || '') + '" onchange="onPtbTargetChanged(' + idx + ', this.value)" placeholder="e.g., 0x2" style="font-size: 12px; font-family: monospace; width: 100%; padding: 6px 8px; min-height: 30px;" />';
         if (funcSelect && pkg && funcSelect.options.length > 0) {
-           html += '<select style="max-width: 150px; font-size: 10px; background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border);" onchange="if(this.value) { onPtbTargetChanged(' + idx + ', this.value); }">';
+           html += '<select style="margin-top: 4px; font-size: 10px; width: 100%; background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border);" onchange="if(this.value) { onPtbTargetChanged(' + idx + ', this.value); }">';
            html += optionsHtml;
            html += '</select>';
         }
