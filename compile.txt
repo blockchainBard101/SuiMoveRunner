@@ -1,0 +1,53 @@
+
+> suimoverunner@0.6.0 compile
+> npm run check-types && npm run lint && node esbuild.js
+
+
+> suimoverunner@0.6.0 check-types
+> tsc --noEmit
+
+
+> suimoverunner@0.6.0 lint
+> eslint src
+
+
+/home/blockchainbard/Documents/Projects/moveRunner/SuiMoveRunner/src/controllers/EnvironmentController.ts
+  128:51  warning  Expected { after 'if' condition  curly
+  129:57  warning  Expected { after 'if' condition  curly
+  130:22  warning  Expected { after 'else'          curly
+
+/home/blockchainbard/Documents/Projects/moveRunner/SuiMoveRunner/src/controllers/PackageController.ts
+  619:24  warning  Expected { after 'if' condition  curly
+  638:24  warning  Expected { after 'if' condition  curly
+  670:24  warning  Expected { after 'if' condition  curly
+  685:34  warning  Expected { after 'if' condition  curly
+  690:33  warning  Expected { after 'if' condition  curly
+  691:30  warning  Expected { after 'if' condition  curly
+  719:24  warning  Expected { after 'if' condition  curly
+  742:24  warning  Expected { after 'if' condition  curly
+
+/home/blockchainbard/Documents/Projects/moveRunner/SuiMoveRunner/src/controllers/TransactionController.ts
+  156:55  warning  Expected { after 'if' condition  curly
+  177:55  warning  Expected { after 'if' condition  curly
+  257:36  warning  Expected { after 'if' condition  curly
+  258:26  warning  Expected { after 'if' condition  curly
+  259:33  warning  Expected { after 'if' condition  curly
+  260:23  warning  Expected { after 'if' condition  curly
+  261:44  warning  Expected { after 'if' condition  curly
+  279:30  warning  Expected { after 'if' condition  curly
+  308:30  warning  Expected { after 'if' condition  curly
+
+/home/blockchainbard/Documents/Projects/moveRunner/SuiMoveRunner/src/state/ExtensionState.ts
+  285:18  warning  Expected { after 'if' condition  curly
+  299:18  warning  Expected { after 'if' condition  curly
+  318:18  warning  Expected { after 'if' condition  curly
+  359:25  warning  Expected { after 'if' condition  curly
+
+/home/blockchainbard/Documents/Projects/moveRunner/SuiMoveRunner/src/ui/templates/webview/templates.ts
+  663:33  warning  Expected { after 'if' condition  curly
+
+✖ 25 problems (0 errors, 25 warnings)
+  0 errors and 25 warnings potentially fixable with the `--fix` option.
+
+[watch] build started
+[watch] build finished
